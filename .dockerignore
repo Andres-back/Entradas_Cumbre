@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+*.md
+.env
+.env.*
+!.env.production.example
+docker-compose*.yml
+Dockerfile
+.dockerignore
+scripts/test-e2e.mjs

@@ -1,0 +1,515 @@
+@import "tailwindcss";
+
+@theme {
+  /* Fondos */
+  --color-taller-night: #0E1A2D;
+  --color-taller-steel: #15263F;
+  --color-taller-iron: #1F3251;
+  --color-taller-shadow: #0A1322;
+
+  /* Acentos */
+  --color-ember-rust: #C8771E;
+  --color-ember-bright: #E89A3C;
+  --color-ember-deep: #8B4E14;
+  --color-ember-glow: #F4B860;
+
+  /* Textos */
+  --color-bone: #E8D4A8;
+  --color-cream: #F4E4C1;
+  --color-ash: #9B8B6F;
+  --color-smoke: #5C5446;
+
+  /* Semanticos */
+  --color-signal-green: #7BA05B;
+  --color-signal-rust: #A8442A;
+  --color-signal-steel: #5A7DA8;
+
+  /* Tipografia (alias a las CSS vars de next/font) */
+  --font-display: var(--font-alfa-slab-one);
+  --font-subhead: var(--font-oswald);
+  --font-body: var(--font-work-sans);
+  --font-mono: var(--font-special-elite);
+
+  /* Sombras calidas */
+  --shadow-plate: 0 2px 8px rgba(10, 19, 34, 0.6);
+  --shadow-card: 0 8px 24px rgba(10, 19, 34, 0.7);
+  --shadow-modal: 0 24px 64px rgba(10, 19, 34, 0.8);
+  --shadow-ember: 0 0 24px rgba(232, 154, 60, 0.4);
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--color-taller-night);
+    color: var(--color-bone);
+    font-family: var(--font-body);
+  }
+
+  body {
+    background-image:
+      radial-gradient(ellipse at top, rgba(232, 154, 60, 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(10, 19, 34, 0.4) 0%, transparent 60%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background-color: var(--color-ember-bright);
+    color: var(--color-taller-night);
+  }
+}
+
+/* Keyframes para animaciones de marca */
+@keyframes rpm-needle {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-100deg); }
+  40% { transform: rotate(-60deg); }
+  60% { transform: rotate(-130deg); }
+  80% { transform: rotate(-80deg); }
+}
+
+@keyframes shake-short {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes shake-long {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+  20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+
+@keyframes idle-wrench {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+
+@keyframes ember-pulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(232, 154, 60, 0.3); }
+  50% { box-shadow: 0 0 32px rgba(232, 154, 60, 0.6); }
+}
+
+@keyframes banner-swing {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes typewriter-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Subida + fade para secciones (scroll reveal con @view-timeline) */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Idle del motor: vibracion sutil para cuando "arrancamos" */
+@keyframes car-idle {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(0.5px, -0.5px); }
+  50% { transform: translate(-0.5px, 0.5px); }
+  75% { transform: translate(0.5px, 0.5px); }
+}
+
+/* Rumble del motor: mas visible (1.5px) para el hero */
+@keyframes car-rumble {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(1.5px, -1px); }
+  40% { transform: translate(-1.5px, 1.5px); }
+  60% { transform: translate(1.5px, 1px); }
+  80% { transform: translate(-1px, -1.5px); }
+}
+
+/* Rugido de letras: vibracion sutil tipo motor encendido.
+   3 iteraciones (no infinite) para que arranque con energia y luego calme. */
+@keyframes letter-rumble {
+  0%, 100% { transform: translate(0, 0) rotate(0); }
+  20% { transform: translate(-0.5px, 0.5px) rotate(-0.3deg); }
+  40% { transform: translate(0.5px, -0.5px) rotate(0.25deg); }
+  60% { transform: translate(-0.5px, -0.5px) rotate(-0.2deg); }
+  80% { transform: translate(0.5px, 0.5px) rotate(0.3deg); }
+}
+
+/* Hero editorial: fade-up con stagger. Sin placa, sin glow, sin caida. */
+@keyframes fade-up {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up-1 { animation: fade-up 0.6s ease-out 0.3s both; }
+.animate-fade-up-2 { animation: fade-up 0.6s ease-out 0.5s both; }
+.animate-fade-up-3 { animation: fade-up 0.6s ease-out 0.9s both; }
+.animate-fade-up-4 { animation: fade-up 0.6s ease-out 1.1s both; }
+.animate-fade-up-5 { animation: fade-up 0.6s ease-out 1.3s both; }
+.animate-fade-up-6 { animation: fade-up 0.6s ease-out 1.5s both; }
+
+/* Divider del hero: se "abre" de derecha a izquierda (origin-right) */
+@keyframes fade-up-divider {
+  0%   { opacity: 0; transform: scaleX(0); }
+  100% { opacity: 1; transform: scaleX(1); }
+}
+.animate-fade-up-divider { animation: fade-up-divider 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.7s both; }
+
+/* Scroll indicator pulsante */
+@keyframes scroll-pulse {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50% { transform: translateY(6px); opacity: 1; }
+}
+.animate-scroll-pulse { animation: scroll-pulse 1.8s ease-in-out 2.4s infinite; }
+
+/* Flicker tipo bombilla vieja */
+@keyframes bulb-flicker {
+  0%, 100% { opacity: 1; }
+  47% { opacity: 1; }
+  48% { opacity: 0.6; }
+  49% { opacity: 1; }
+  82% { opacity: 1; }
+  83% { opacity: 0.7; }
+  84% { opacity: 1; }
+}
+
+/* Slow rotate para el capó (cuando "se abre") */
+@keyframes hood-lift {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(-110deg); }
+}
+
+@layer utilities {
+  .animate-rpm-needle { animation: rpm-needle 1.2s ease-in-out infinite; transform-origin: 100px 110px; }
+  .animate-shake-short { animation: shake-short 0.3s ease-in-out; }
+  .animate-shake-long { animation: shake-long 0.4s ease-in-out; }
+  .animate-idle-wrench { animation: idle-wrench 0.6s ease-in-out infinite; transform-origin: center; }
+  .animate-ember-pulse { animation: ember-pulse 2s ease-in-out infinite; }
+  .animate-banner-swing { animation: banner-swing 4s ease-in-out infinite; transform-origin: top center; }
+  .animate-typewriter-cursor { animation: typewriter-cursor 0.8s steps(1) infinite; }
+  .animate-car-idle { animation: car-idle 0.12s steps(4) infinite; }
+  .animate-car-rumble { animation: car-rumble 0.18s steps(4) infinite; }
+  .animate-letter-rumble { animation: letter-rumble 0.8s steps(5) 3; }
+  .animate-bulb-flicker { animation: bulb-flicker 4s ease-in-out infinite; }
+
+  /* === Page transition (template.tsx) ==================================== */
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-page-in { animation: page-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* === Stagger children (para listas de cards / invitados / mesas) ===== */
+  @keyframes stagger-in {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .stagger-children > * {
+    animation: stagger-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .stagger-children > *:nth-child(1)  { animation-delay: 0.04s; }
+  .stagger-children > *:nth-child(2)  { animation-delay: 0.08s; }
+  .stagger-children > *:nth-child(3)  { animation-delay: 0.12s; }
+  .stagger-children > *:nth-child(4)  { animation-delay: 0.16s; }
+  .stagger-children > *:nth-child(5)  { animation-delay: 0.20s; }
+  .stagger-children > *:nth-child(6)  { animation-delay: 0.24s; }
+  .stagger-children > *:nth-child(7)  { animation-delay: 0.28s; }
+  .stagger-children > *:nth-child(8)  { animation-delay: 0.32s; }
+  .stagger-children > *:nth-child(9)  { animation-delay: 0.36s; }
+  .stagger-children > *:nth-child(10) { animation-delay: 0.40s; }
+  .stagger-children > *:nth-child(n+11) { animation-delay: 0.44s; }
+
+  /* === Card hover-lift ================================================== */
+  .hover-lift {
+    transition:
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.28s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-ember-rust);
+    box-shadow:
+      0 14px 32px rgba(10, 19, 34, 0.85),
+      0 0 0 1px rgba(232, 154, 60, 0.15);
+  }
+
+  /* === Shine sweep: una franja de luz que cruza la card en hover ======== */
+  .card-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .card-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      transparent 35%,
+      rgba(232, 154, 60, 0.08) 50%,
+      transparent 65%
+    );
+    transform: translateX(-100%);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .card-shine:hover::after {
+    transform: translateX(100%);
+  }
+
+  /* === Focus glow (inputs y textareas) ================================== */
+  .focus-glow:focus,
+  .focus-glow:focus-within {
+    border-color: var(--color-ember-bright) !important;
+    box-shadow: 0 0 0 3px rgba(232, 154, 60, 0.20) !important;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  /* === Success pulse (button after form success) ======================== */
+  @keyframes success-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(123, 160, 91, 0.55); }
+    70%  { box-shadow: 0 0 0 18px rgba(123, 160, 91, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(123, 160, 91, 0); }
+  }
+  .animate-success-pulse { animation: success-pulse 1.4s ease-out 1; }
+
+  /* === Validado glow: pulso verde para QR aceptado ====================== */
+  @keyframes validado-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(123, 160, 91, 0.4); }
+    50%      { box-shadow: 0 0 0 14px rgba(123, 160, 91, 0); }
+  }
+  .animate-validado-glow { animation: validado-glow 1.6s ease-out 2; }
+
+  /* === Counter tick (entrada de numero animado) ========================= */
+  @keyframes counter-tick {
+    0%   { opacity: 0; transform: translateY(10px); filter: blur(2px); }
+    60%  { opacity: 1; transform: translateY(-1px); filter: blur(0); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  .animate-counter-tick { animation: counter-tick 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* === Modal scale-in =================================================== */
+  @keyframes modal-overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes modal-panel-in {
+    from { opacity: 0; transform: scale(0.95) translateY(12px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .animate-modal-overlay { animation: modal-overlay-in 0.2s ease-out both; }
+  .animate-modal-panel   { animation: modal-panel-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* === Check draw (SVG checkmark) ======================================= */
+  @keyframes check-circle-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes check-stroke-draw {
+    to { stroke-dashoffset: 0; }
+  }
+  .check-circle-anim {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    animation: check-circle-draw 0.55s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+  }
+  .check-stroke-anim {
+    stroke-dasharray: 28;
+    stroke-dashoffset: 28;
+    animation: check-stroke-draw 0.35s cubic-bezier(0.65, 0, 0.45, 1) 0.45s forwards;
+  }
+
+  /* === Confetti pieces ================================================== */
+  @keyframes confetti-fall {
+    0%   { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate3d(var(--tx, 80px), 120vh, 0) rotate(var(--tr, 720deg)); opacity: 0; }
+  }
+  .animate-confetti {
+    animation: confetti-fall var(--dur, 2.4s) cubic-bezier(0.22, 1, 0.36, 1) var(--delay, 0s) forwards;
+  }
+
+  /* === QR scanner scan-line ============================================= */
+  @keyframes scan-line-y {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(calc(100% - 3px)); }
+  }
+  .animate-scan-line { animation: scan-line-y 2.2s ease-in-out infinite; }
+
+  /* === Shimmer: skeleton loader ========================================= */
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-taller-steel) 0%,
+      var(--color-taller-iron) 50%,
+      var(--color-taller-steel) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+
+  /* === Press feedback: un boton se hunde ligeramente al click =========== */
+  .press-down { transition: transform 0.12s ease; }
+  .press-down:active { transform: scale(0.97); }
+
+  /* === Progress bar fill (para ocupacion) =============================== */
+  @keyframes bar-fill {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(var(--fill, 0%)); }
+  }
+  .animate-bar-fill {
+    transform-origin: left center;
+    animation: bar-fill 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+
+  /* Scroll reveal: la animacion se dispara cuando entra al viewport.
+     Soporte: Chrome 115+, Edge 115+, Safari 18+. Fallback: sin animacion. */
+  .reveal-on-scroll {
+    animation: reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 30%;
+  }
+
+  /* Noise overlay sutil inline (sin necesidad de PNG) */
+  .bg-noise-taller {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/><feColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.83 0 0 0 0 0.66 0 0 0 0.5 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    background-size: 200px 200px;
+  }
+
+  /* Divisor con acento naranja (tipo splash de pintura) */
+  .rust-divider {
+    position: relative;
+    height: 1px;
+    margin-top: 3rem;
+    margin-bottom: 3rem;
+  }
+  .rust-divider::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, transparent, var(--color-ember-rust) 50%, transparent);
+    opacity: 0.6;
+  }
+  .rust-divider::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) rotate(45deg);
+    width: 12px;
+    height: 12px;
+    background: var(--color-ember-bright);
+    box-shadow: 0 0 12px rgba(232, 154, 60, 0.6);
+  }
+
+  /* === CTA glow pulse: pulso suave de ember para botones principales ===== */
+  @keyframes cta-glow {
+    0%, 100% { box-shadow: 0 0 16px rgba(232, 154, 60, 0.25), 0 0 0 0 rgba(232, 154, 60, 0); }
+    50%      { box-shadow: 0 0 28px rgba(232, 154, 60, 0.55), 0 0 0 6px rgba(232, 154, 60, 0.05); }
+  }
+  .animate-cta-glow { animation: cta-glow 2.6s ease-in-out infinite; }
+
+  /* === Glitch: para alertas criticas (CODIGO YA ESCANEADO) ============== */
+  @keyframes glitch-x {
+    0%, 100% { transform: translate(0, 0); }
+    20%      { transform: translate(-2px, 1px); }
+    40%      { transform: translate(2px, -1px); }
+    60%      { transform: translate(-1px, 2px); }
+    80%      { transform: translate(1px, -2px); }
+  }
+  @keyframes glitch-color {
+    0%, 100% { text-shadow: 0 0 0 transparent; }
+    25%      { text-shadow: -2px 0 0 rgba(168, 68, 42, 0.7), 2px 0 0 rgba(232, 154, 60, 0.5); }
+    50%      { text-shadow: 2px 0 0 rgba(168, 68, 42, 0.7), -2px 0 0 rgba(232, 154, 60, 0.5); }
+    75%      { text-shadow: -1px 0 0 rgba(168, 68, 42, 0.5), 1px 0 0 rgba(232, 154, 60, 0.3); }
+  }
+  .animate-glitch { animation: glitch-x 0.25s steps(2) 3, glitch-color 0.4s steps(2) 3; }
+
+  /* === Flip 3D: rotacion tipo tarjeta cuando cambia estado ============== */
+  @keyframes flip-3d {
+    0%   { transform: perspective(400px) rotateX(0deg); opacity: 1; }
+    50%  { transform: perspective(400px) rotateX(90deg); opacity: 0.4; }
+    100% { transform: perspective(400px) rotateX(0deg); opacity: 1; }
+  }
+  .animate-flip-3d { animation: flip-3d 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* === Slide-in para toasts y banners =================================== */
+  @keyframes slide-up-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-up-in { animation: slide-up-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  @keyframes slide-down-in {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-slide-down-in { animation: slide-down-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+  /* === Marquee: scroll horizontal continuo (cupos restantes, etc) ======= */
+  @keyframes marquee-x {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-marquee-x { animation: marquee-x 30s linear infinite; }
+
+  /* === Ring pulse: anillo expansivo para el viewfinder del scanner ======= */
+  @keyframes ring-pulse {
+    0%   { transform: scale(0.85); opacity: 0.8; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+  .animate-ring-pulse { animation: ring-pulse 1.8s ease-out infinite; }
+
+  /* === Soft wobble: pequena oscilacion para llamar la atencion ========== */
+  @keyframes wobble {
+    0%, 100% { transform: rotate(0deg); }
+    25%      { transform: rotate(-2deg); }
+    75%      { transform: rotate(2deg); }
+  }
+  .animate-wobble { animation: wobble 0.5s ease-in-out 2; }
+
+  /* === Text balance (reemplazo de react-wrap-balancer) ================== *
+   * Distribuye las lineas de un titulo/bloque de texto de forma
+   * visualmente balanceada (evita que una sola palabra quede sola al final).
+   * Soporte nativo: Chrome 114+, Edge 114+, Safari 17.5+, Firefox 121+.
+   * Sin JS, sin <script>, sin hydration. Si no hay soporte, el texto
+   * simplemente no se balancea (cae al wrap normal). */
+  .text-balance { text-wrap: balance; }
+  .text-pretty  { text-wrap: pretty; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* Hood del hero: si el usuario pidio menos movimiento,
+     no lo mostramos para que vea el titulo directo. */
+  .hero-hood {
+    display: none !important;
+  }
+
+  /* Elementos marcados con data-anim: si no hay animacion,
+     los dejamos visibles (estado final natural). */
+  [data-anim] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Stagger children: si no hay animacion, los dejamos visibles
+     (estado final natural) en vez de invisibles. */
+  .stagger-children > * {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* Si JS esta deshabilitado, el hood no se va a animar nunca.
+   Lo ocultamos para que el usuario vea el titulo. */
+.hero-hood-noscript {
+  display: none !important;
+}

@@ -1,0 +1,22 @@
+# Caddy reverse proxy para Bajo el Capo
+# Auto-HTTPS via Let's Encrypt
+# Reemplaza TU_DOMINIO por el dominio real (ej: bajoelcapo.mi-vps.com)
+
+{$DOMAIN:localhost} {
+    encode gzip zstd
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    # Next.js app
+    reverse_proxy app:3000
+
+    # Logs (opcional: comentar para deshabilitar)
+    log {
+        output stdout
+        format json
+    }
+}

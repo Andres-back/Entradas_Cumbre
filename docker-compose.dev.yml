@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: bajoelcapo-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bajoelcapo
+      POSTGRES_PASSWORD: bajoelcapo
+      POSTGRES_DB: bajoelcapo
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev:/var/lib/postgresql/data
+
+volumes:
+  postgres_dev:

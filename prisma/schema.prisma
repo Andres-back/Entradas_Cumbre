@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  USUARIO
+  ADMIN
+}
+
+/// Estado global de la Reserva (la agrupacion).
+/// El estado real lo dicta cada Invitado (EstadoInvitado).
+/// Esta reserva pasa a `ASISTIO` cuando todos los Invitados en estado
+/// PAGADO ya tienen `estado = ASISTIO` en la puerta.
+enum EstadoReserva {
+  PAGO_PENDIENTE // 0 invitados pagados
+  PARCIAL        // >= 1 invitado pagado
+  ASISTIO        // todos los PAGADOS entraron
+  CANCELADO
+}
+
+enum EstadoInvitado {
+  PENDIENTE_PAGO
+  PAGADO
+  ASISTIO
+}
+
+enum MedioPago {
+  NEQUI
+  BANCOLOMBIA
+  DAVIPLATA
+  EFECTIVO
+}
+
+model User {
+  id              String    @id @default(cuid())
+  nombreCompleto  String
+  email           String    @unique
+  telefono        String
+  passwordHash    String
+  documento       String?
+  rol             Rol       @default(USUARIO)
+  reserva         Reserva?
+  pagosRegistrados        Pago[]                @relation("AdminQueRegistroPago")
+  invitadosPagados        Invitado[]            @relation("AdminQueMarcoInvitadoPagado")
+  invitadosAsignados      Invitado[]            @relation("AdminQueAsignoMesa")
+  configuracionesEditadas Configuracion[]       @relation("AdminQueEditaConfiguracion")
+
+  // Si true, el usuario DEBE cambiar la contrasena antes de usar la app
+  // (pwd temporal asignada por el admin via /admin/reservas/[id]).
+  // El proxy redirige a /cambiar-contrasena hasta que sea false.
+  debeCambiarContrasena Boolean @default(false)
+
+  creadoEn        DateTime  @default(now())
+  actualizadoEn   DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Reserva {
+  id                  String         @id @default(cuid())
+  userId              String         @unique
+  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // N invitados (1..30) viven en la tabla `Invitado` (ADR-011).
+  // El titular (User) es el invitado #1 conceptual pero no tiene fila propia en Invitado;
+  // ver `incluirTitularEnConteo` en logica de pagos/ingresos.
+
+  // Total esperado = invitados.length * PRECIO_PERSONA.
+  // Se recalcula cada vez que se anade/quita un invitado.
+  valorTotal          Int
+
+  estado              EstadoReserva  @default(PAGO_PENDIENTE)
+
+  confirmadaEn        DateTime?
+  // pagadaEn eliminado: la reserva no se "paga" como unidad; cada invitado se paga.
+  asistioEn           DateTime?
+  canceladaEn         DateTime?
+  motivoCancelacion   String?
+
+  pagos               Pago[]
+  invitados           Invitado[]
+
+  creadaEn            DateTime       @default(now())
+  actualizadaEn       DateTime       @updatedAt
+
+  @@index([estado])
+  @@map("reservas")
+}
+
+model Pago {
+  id                String      @id @default(cuid())
+  reservaId         String
+  reserva           Reserva     @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+
+  medio             MedioPago
+  referencia        String?
+  // monto = invitadosCubiertos.length * PRECIO_PERSONA
+  monto             Int
+  notasInternas     String?
+
+  // IDs de los Invitados cubiertos por este pago. 1 pago puede cubrir 1..N.
+  // Es denormalizado (los pagos no dependen de esto para queries funcionales).
+  invitadosCubiertos String[]
+
+  adminId           String
+  admin             User        @relation("AdminQueRegistroPago", fields: [adminId], references: [id])
+
+  registradoEn      DateTime    @default(now())
+  revertido         Boolean     @default(false)
+  revertidoEn       DateTime?
+  motivoReversion   String?
+
+  @@index([reservaId])
+  @@map("pagos")
+}
+
+/// Una persona del grupo de la reserva.
+/// Cada fila tiene su propio codigo, mesa y silla (ADR-011).
+/// Reemplaza al par `Reserva.acompanante*` + `Ingreso` de versiones anteriores.
+model Invitado {
+  id            String   @id @default(cuid())
+  reservaId     String
+  reserva       Reserva  @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+
+  // 1..N, secuencial por reserva.
+  numero        Int
+
+  nombreCompleto String
+  telefono       String
+
+  estado         EstadoInvitado @default(PENDIENTE_PAGO)
+
+  // Codigo unico de entrada. Null hasta que se pague; al pagar, se genera.
+  // Formato BC-XXXXXXXX.
+  // Anti-reuse: solo se puede "usar" 1 vez (ver registradoEn).
+  codigo         String?  @unique
+
+  // null hasta que el admin asigne mesa+silla.
+  mesaId         String?
+  mesa           Mesa?    @relation(fields: [mesaId], references: [id], onDelete: SetNull)
+  silla          Int?
+
+  // Auditoria de pago (seteado al pagar).
+  adminIdPago    String?
+  adminPago      User?    @relation("AdminQueMarcoInvitadoPagado", fields: [adminIdPago], references: [id])
+  fechaPago      DateTime?
+
+  // Auditoria de asignacion de mesa.
+  adminIdAsignacion String?
+  adminAsignacion   User?    @relation("AdminQueAsignoMesa", fields: [adminIdAsignacion], references: [id])
+  fechaAsignacion   DateTime?
+
+  // null = el codigo fue pre-generado al pagar, la persona aun no ha entrado.
+  // set = la persona ya entro a la puerta (timestamp de la entrada).
+  registradoEn  DateTime?
+
+  notasInternas  String?
+
+  creadoEn       DateTime @default(now())
+  actualizadoEn  DateTime @updatedAt
+
+  @@unique([reservaId, numero])  // un slot por reserva
+  @@index([reservaId])
+  @@index([codigo])              // busqueda en el validador de puerta
+  @@index([estado])
+  @@unique([mesaId, silla])      // evita dos invitados en la misma mesa+silla
+  @@map("invitados")
+}
+
+/// Mesa fisica del salon. Numero 1+ en orden visual.
+/// Cada mesa tiene `capacidad` sillas (default 8, rango 1..20).
+/// Las sillas son posiciones enteras 1..capacidad, asignables a Invitados.
+model Mesa {
+  id        String     @id @default(cuid())
+  numero    Int        @unique
+  capacidad Int        @default(8)
+  notas     String?
+  invitados Invitado[]
+
+  creadaEn       DateTime @default(now())
+  actualizadaEn  DateTime @updatedAt
+
+  @@map("mesas")
+}
+
+/// Configuracion global del evento (singleton, solo 1 fila con id="singleton").
+/// Editable desde /admin/evento. Se usa en el home, en metadata, y en
+/// toda la UI que muestra datos del evento (fecha, lugar, precio, etc.).
+/// Las variables de .env son el fallback inicial antes de la primera edicion.
+model Configuracion {
+  id                String   @id @default("singleton")
+
+  // Datos del evento
+  nombre            String   @default("Bajo el Capo")
+  fecha             DateTime // fecha y hora del evento
+  puertas           String   // hora de apertura de puertas (texto libre, ej "5:45 pm")
+  lugar             String   // nombre del lugar
+  barrio            String?  // barrio/direccion adicional
+  ciudad            String?  // ciudad (opcional)
+  aforo             Int      @default(150)
+  precioPorPersona  Int      @default(25000) // en COP
+
+  // Contacto del organizador
+  organizadorNombre    String  @default("Fredy")
+  organizadorEmail     String  @default("fredy@gmail.com")
+  organizadorTelefono  String  @default("+573118268444") // E.164
+  organizadorWhatsapp  String  @default("573118268444") // sin +, para wa.me/
+
+  // Metadata
+  actualizadoEn    DateTime @updatedAt
+  actualizadoPorId String?
+  actualizadoPor   User?    @relation("AdminQueEditaConfiguracion", fields: [actualizadoPorId], references: [id], onDelete: SetNull)
+
+  @@map("configuracion")
+}
