@@ -1,40 +1,35 @@
 @import "tailwindcss";
 
 @theme {
-  /* Fondos */
-  --color-taller-night: #0E1A2D;
-  --color-taller-steel: #15263F;
-  --color-taller-iron: #1F3251;
-  --color-taller-shadow: #0A1322;
+  --color-taller-night: #03172A;
+  --color-taller-steel: #062B49;
+  --color-taller-iron: #073B5C;
+  --color-taller-shadow: #020C17;
 
-  /* Acentos */
-  --color-ember-rust: #C8771E;
-  --color-ember-bright: #E89A3C;
-  --color-ember-deep: #8B4E14;
-  --color-ember-glow: #F4B860;
+  --color-ember-rust: #00AEEF;
+  --color-ember-bright: #34D5FF;
+  --color-ember-deep: #0276A8;
+  --color-ember-glow: #8DEBFF;
 
-  /* Textos */
-  --color-bone: #E8D4A8;
-  --color-cream: #F4E4C1;
-  --color-ash: #9B8B6F;
-  --color-smoke: #5C5446;
+  --color-bone: #C9E7F5;
+  --color-cream: #FFFFFF;
+  --color-ash: #8CBACC;
+  --color-smoke: #446B7D;
+  --color-cumbre-mist: #C9E7F5;
 
-  /* Semanticos */
-  --color-signal-green: #7BA05B;
-  --color-signal-rust: #A8442A;
-  --color-signal-steel: #5A7DA8;
+  --color-signal-green: #53D28C;
+  --color-signal-rust: #FF6B6B;
+  --color-signal-steel: #34D5FF;
 
-  /* Tipografia (alias a las CSS vars de next/font) */
   --font-display: var(--font-alfa-slab-one);
   --font-subhead: var(--font-oswald);
   --font-body: var(--font-work-sans);
   --font-mono: var(--font-special-elite);
 
-  /* Sombras calidas */
-  --shadow-plate: 0 2px 8px rgba(10, 19, 34, 0.6);
-  --shadow-card: 0 8px 24px rgba(10, 19, 34, 0.7);
-  --shadow-modal: 0 24px 64px rgba(10, 19, 34, 0.8);
-  --shadow-ember: 0 0 24px rgba(232, 154, 60, 0.4);
+  --shadow-plate: 0 2px 10px rgba(0, 174, 239, 0.22);
+  --shadow-card: 0 12px 34px rgba(2, 12, 23, 0.45);
+  --shadow-modal: 0 24px 64px rgba(2, 12, 23, 0.75);
+  --shadow-ember: 0 0 28px rgba(52, 213, 255, 0.35);
 }
 
 @layer base {
@@ -47,8 +42,7 @@
 
   body {
     background-image:
-      radial-gradient(ellipse at top, rgba(232, 154, 60, 0.04) 0%, transparent 50%),
-      radial-gradient(ellipse at bottom, rgba(10, 19, 34, 0.4) 0%, transparent 60%);
+      radial-gradient(ellipse at top, rgba(52, 213, 255, 0.08) 0%, transparent 48%), radial-gradient(ellipse at bottom, rgba(3, 23, 42, 0.7) 0%, transparent 62%);
     background-attachment: fixed;
     min-height: 100vh;
   }
@@ -106,7 +100,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Idle del motor: vibracion sutil para cuando "arrancamos" */
+/* Idle del proceso: movimiento sutil para cuando "arrancamos" */
 @keyframes car-idle {
   0%, 100% { transform: translate(0, 0); }
   25% { transform: translate(0.5px, -0.5px); }
@@ -114,7 +108,7 @@
   75% { transform: translate(0.5px, 0.5px); }
 }
 
-/* Rumble del motor: mas visible (1.5px) para el hero */
+/* Rumble del proceso: mas visible (1.5px) para el hero */
 @keyframes car-rumble {
   0%, 100% { transform: translate(0, 0); }
   20% { transform: translate(1.5px, -1px); }
@@ -123,7 +117,7 @@
   80% { transform: translate(-1px, -1.5px); }
 }
 
-/* Rugido de letras: vibracion sutil tipo motor encendido.
+/* Rugido de letras: movimiento sutil tipo proceso encendido.
    3 iteraciones (no infinite) para que arranque con energia y luego calme. */
 @keyframes letter-rumble {
   0%, 100% { transform: translate(0, 0) rotate(0); }
@@ -225,10 +219,11 @@
   }
   .hover-lift:hover {
     transform: translateY(-2px);
-    border-color: var(--color-ember-rust);
+    border-color: var(--color-ember-bright);
     box-shadow:
-      0 14px 32px rgba(10, 19, 34, 0.85),
-      0 0 0 1px rgba(232, 154, 60, 0.15);
+      0 14px 32px rgba(2, 12, 23, 0.85),
+      0 0 0 1px rgba(52, 213, 255, 0.22),
+      0 0 24px rgba(52, 213, 255, 0.16);
   }
 
   /* === Shine sweep: una franja de luz que cruza la card en hover ======== */
@@ -244,7 +239,7 @@
     background: linear-gradient(
       105deg,
       transparent 35%,
-      rgba(232, 154, 60, 0.08) 50%,
+      rgba(52, 213, 255, 0.14) 50%,
       transparent 65%
     );
     transform: translateX(-100%);
@@ -253,6 +248,49 @@
   .card-shine:hover::after {
     transform: translateX(100%);
   }
+
+  .ui-shine::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.42) 50%, transparent 70%);
+    transform: translateX(-130%);
+    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .ui-shine:hover::before {
+    transform: translateX(130%);
+  }
+
+  .neon-card {
+    isolation: isolate;
+    overflow: hidden;
+  }
+  .neon-card::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    opacity: 0;
+    background: linear-gradient(135deg, rgba(52,213,255,0.45), transparent 42%, rgba(141,235,255,0.18));
+    transition: opacity 0.3s ease;
+  }
+  .neon-card:hover::after {
+    opacity: 1;
+  }
+
+  .glass-panel {
+    border: 1px solid rgba(255,255,255,0.1);
+    background: linear-gradient(135deg, rgba(255,255,255,0.085), rgba(255,255,255,0.025));
+    backdrop-filter: blur(18px);
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .animate-float-slow { animation: float-slow 5.5s ease-in-out infinite; }
 
   /* === Focus glow (inputs y textareas) ================================== */
   .focus-glow:focus,
@@ -476,6 +514,12 @@
   .text-balance { text-wrap: balance; }
   .text-pretty  { text-wrap: pretty; }
 }
+  .cumbre-topography {
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(52, 213, 255, 0.18), transparent 26%),
+      repeating-radial-gradient(circle at 18% 40%, rgba(201, 231, 245, 0.18) 0 1px, transparent 1px 18px);
+    mask-image: linear-gradient(90deg, transparent, black 18%, black 82%, transparent);
+  }
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -513,3 +557,7 @@
 .hero-hood-noscript {
   display: none !important;
 }
+
+
+
+

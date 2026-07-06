@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,6 +12,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import Link from "next/link";
+import { EstadoReserva, EstadoInvitado } from "@prisma/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,11 @@ import {
   Clock,
   Search,
 } from "lucide-react";
-import { EstadoReserva, EstadoInvitado } from "@prisma/client";
+import {
+  EditarReservaButton,
+  EliminarReservaButton,
+  type ReservaEditable,
+} from "./reserva-crud";
 
 type ReservaRow = {
   id: string;
@@ -35,6 +40,7 @@ type ReservaRow = {
   totalInvitados: number;
   valorTotal: number;
   estado: EstadoReserva;
+  editable: ReservaEditable;
 };
 
 interface ReservasTableProps {
@@ -44,10 +50,14 @@ interface ReservasTableProps {
     valorTotal: number;
     user: {
       nombreCompleto: string;
+      email: string;
       telefono: string;
     };
     invitados: Array<{
       id: string;
+      numero: number;
+      nombreCompleto: string;
+      telefono: string;
       estado: EstadoInvitado;
       codigo: string | null;
     }>;
@@ -62,8 +72,8 @@ const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
 };
 
 const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Pago pendiente",
-  PARCIAL: "Pago parcial",
+  PAGO_PENDIENTE: "Aporte pendiente",
+  PARCIAL: "Aporte parcial",
   ASISTIO: "Asistió",
   CANCELADO: "Cancelado",
 };
@@ -92,7 +102,7 @@ const columns = [
           {v} código{v === 1 ? "" : "s"}
         </span>
       ) : (
-        <span className="text-ash">—</span>
+        <span className="text-ash">Sin códigos</span>
       );
     },
     sortingFn: "basic",
@@ -146,14 +156,21 @@ const columns = [
   columnHelper.display({
     id: "acciones",
     header: "",
-    cell: (info) => (
-      <Link
-        href={`/admin/reservas/${info.row.original.id}`}
-        className="text-ember-bright text-base uppercase tracking-wider font-subhead hover:underline inline-flex items-center gap-1"
-      >
-        Ver <ArrowRight className="h-4 w-4" />
-      </Link>
-    ),
+    cell: (info) => {
+      const row = info.row.original;
+      return (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link
+            href={`/admin/reservas/${row.id}`}
+            className="inline-flex h-9 items-center gap-1 rounded-md border border-taller-iron px-3 font-subhead text-xs uppercase tracking-wider text-ember-bright hover:border-ember-bright"
+          >
+            Ver <ArrowRight className="h-4 w-4" />
+          </Link>
+          <EditarReservaButton reserva={row.editable} />
+          <EliminarReservaButton reservaId={row.id} nombre={row.nombreCompleto} />
+        </div>
+      );
+    },
   }),
 ];
 
@@ -173,10 +190,21 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
         totalInvitados: r.invitados.length,
         valorTotal: r.valorTotal,
         estado: r.estado,
+        editable: {
+          id: r.id,
+          user: r.user,
+          invitados: r.invitados.map((i) => ({
+            numero: i.numero,
+            nombreCompleto: i.nombreCompleto,
+            telefono: i.telefono,
+            estado: i.estado,
+          })),
+        },
       })),
     [reservas]
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -206,7 +234,7 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
   return (
     <>
       <div className="mb-4 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-ash" />
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ash" />
         <Input
           placeholder="Buscar por nombre..."
           value={searchValue}
@@ -246,12 +274,8 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
                           header.getContext()
                         )}
                         {{
-                          asc: (
-                            <ArrowUp className="h-3 w-3 text-ember-bright" />
-                          ),
-                          desc: (
-                            <ArrowDown className="h-3 w-3 text-ember-bright" />
-                          ),
+                          asc: <ArrowUp className="h-3 w-3 text-ember-bright" />,
+                          desc: <ArrowDown className="h-3 w-3 text-ember-bright" />,
                         }[header.column.getIsSorted() as string] ?? null}
                       </span>
                     </th>
@@ -262,10 +286,7 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
             <tbody className="divide-y divide-taller-iron">
               {paginatedRows.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="text-center py-12 text-ash"
-                  >
+                  <td colSpan={columns.length} className="text-center py-12 text-ash">
                     Sin reservas en este filtro.
                   </td>
                 </tr>
@@ -284,10 +305,7 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
                           : ""
                       }`}
                     >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </td>
                   ))}
                 </tr>
@@ -329,9 +347,9 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
           const r = row.original;
           return (
             <li key={r.id}>
-              <Link href={`/admin/reservas/${r.id}`} className="block">
-                <Card className="hover-lift active:scale-[0.99]">
-                  <CardContent className="p-3 space-y-1.5">
+              <Card className="hover-lift active:scale-[0.99]">
+                <CardContent className="p-3 space-y-3">
+                  <Link href={`/admin/reservas/${r.id}`} className="block">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-bone font-subhead text-lg truncate">
@@ -341,17 +359,14 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
                           {formatLocal(r.telefono)}
                         </p>
                       </div>
-                      <Badge
-                        variant={estadoVariant[r.estado]}
-                        className="shrink-0"
-                      >
+                      <Badge variant={estadoVariant[r.estado]} className="shrink-0">
                         {estadoLabel[r.estado]}
                       </Badge>
                     </div>
-                    <div className="flex items-center justify-between text-sm gap-2 flex-wrap pt-1">
+                    <div className="flex items-center justify-between text-sm gap-2 flex-wrap pt-2">
                       <span className="font-mono text-ember-bright inline-flex items-center gap-1">
                         <Users className="h-4 w-4" />
-                        {r.totalInvitados} inv.
+                        {r.totalInvitados} asis.
                       </span>
                       <span className="text-bone inline-flex items-center gap-1">
                         <Check className="h-4 w-4" />
@@ -367,9 +382,13 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
                         {formatCOP(r.valorTotal)}
                       </span>
                     </div>
-                  </CardContent>
-                </Card>
-              </Link>
+                  </Link>
+                  <div className="flex flex-wrap gap-2 border-t border-taller-iron pt-3">
+                    <EditarReservaButton reserva={r.editable} />
+                    <EliminarReservaButton reservaId={r.id} nombre={r.nombreCompleto} />
+                  </div>
+                </CardContent>
+              </Card>
             </li>
           );
         })}

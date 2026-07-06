@@ -5,7 +5,7 @@ import { CambiarContrasenaForm } from "./cambiar-form";
 import { KeyRound } from "lucide-react";
 
 export const metadata = {
-  title: "Cambiar contraseña | Bajo el Capó",
+  title: "Cambiar contraseña | Cumbre Impacto",
 };
 
 export default async function CambiarContrasenaPage() {
@@ -40,3 +40,5 @@ export default async function CambiarContrasenaPage() {
     </>
   );
 }
+
+

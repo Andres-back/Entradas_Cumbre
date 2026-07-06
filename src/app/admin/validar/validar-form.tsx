@@ -7,6 +7,9 @@ import { z } from "zod";
 import {
   validarCodigo,
   confirmarIngreso,
+  confirmarReingreso,
+  marcarAlmuerzoEntregado,
+  marcarRefrigerioEntregado,
 } from "../actions";
 import type { ValidarResult, ValidarEstado } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -23,6 +26,9 @@ import {
   Armchair,
   Camera,
   Phone,
+  RotateCcw,
+  Utensils,
+  Coffee,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +36,7 @@ const formSchema = z.object({
   codigo: z
     .string()
     .min(1, "Ingresa un código")
-    .regex(/^BC-[A-Z2-9]{8}$/, "Formato: BC-XXXXXXXX"),
+    .regex(/^CI-[A-Z2-9]{8}$/, "Formato: CI-XXXXXXXX"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -51,6 +57,13 @@ const estadoConfig: Record<
     text: "text-signal-green",
     icon: CheckCircle2,
     label: "VALIDO",
+  },
+  reingreso: {
+    border: "border-ember-bright",
+    bg: "bg-ember-bright/10",
+    text: "text-ember-bright",
+    icon: RotateCcw,
+    label: "REINGRESO",
   },
   completo: {
     border: "border-signal-rust",
@@ -168,7 +181,7 @@ export function ValidarForm() {
             autoCapitalize="characters"
             autoCorrect="off"
             spellCheck={false}
-            placeholder="BC-XXXXXXXX"
+            placeholder="CI-XXXXXXXX"
             className="flex-1 min-w-0 h-20 md:h-16 px-3 md:px-4 rounded-md border-2 border-taller-iron bg-taller-shadow font-mono text-3xl md:text-2xl tracking-widest text-ember-bright uppercase placeholder:text-ash/40 focus:border-ember-bright focus:outline-none"
             style={{ fontFamily: "var(--font-special-elite), monospace" }}
             ref={(e) => {
@@ -195,7 +208,7 @@ export function ValidarForm() {
         <div key={result.codigo ?? "result"} className="animate-page-in">
           <ResultadoCard
             result={result}
-            onConfirmar={async (res) => {
+            onOperacion={async (res) => {
               const r = await res;
               if (!r.success || r.error) {
                 setFeedback({
@@ -209,6 +222,21 @@ export function ValidarForm() {
                     ingresados: r.reserva.cantidadIngresados,
                     total: r.reserva.cantidadAsistentes,
                   });
+                }
+                const reserva = r.reserva;
+                const invitado = r.invitado;
+                if (reserva && invitado) {
+                  setResult((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          estado: invitado.registradoEn ? "reingreso" : prev.estado,
+                          mensaje: r.message ?? prev.mensaje,
+                          reserva,
+                          invitado,
+                        }
+                      : prev
+                  );
                 }
               }
             }}
@@ -295,11 +323,18 @@ function ScanButton({ onClick }: { onClick: () => void }) {
 
 function ResultadoCard({
   result,
-  onConfirmar,
+  onOperacion,
 }: {
   result: ValidarResult;
-  onConfirmar: (
-    res: Promise<Awaited<ReturnType<typeof confirmarIngreso>>>
+  onOperacion: (
+    res: Promise<
+      Awaited<
+        | ReturnType<typeof confirmarIngreso>
+        | ReturnType<typeof confirmarReingreso>
+        | ReturnType<typeof marcarAlmuerzoEntregado>
+        | ReturnType<typeof marcarRefrigerioEntregado>
+      >
+    >
   ) => void;
 }) {
   const config = estadoConfig[result.estado];
@@ -307,6 +342,13 @@ function ResultadoCard({
   const reserva = result.reserva!;
   const invitado = result.invitado!;
   const canConfirmar = result.estado === "ok";
+  const canReingreso = result.estado === "reingreso";
+  const canAlmuerzo =
+    (result.estado === "ok" || result.estado === "reingreso") &&
+    !invitado.almuerzoEntregadoEn;
+  const canRefrigerio =
+    (result.estado === "ok" || result.estado === "reingreso") &&
+    !invitado.refrigerioEntregadoEn;
 
   return (
     <div
@@ -350,6 +392,30 @@ function ResultadoCard({
             {invitado.silla}
           </p>
         )}
+
+        <div className="grid grid-cols-1 gap-2 rounded-md border border-white/10 bg-taller-night/45 p-3 text-sm sm:grid-cols-4">
+          <Metric label="Primer ingreso" value={formatTime(invitado.registradoEn)} />
+          <Metric
+            label="Reingresos"
+            value={`${invitado.reingresos}`}
+            accent={invitado.reingresos > 0}
+          />
+          <Metric
+            label="Almuerzo"
+            value={invitado.almuerzoEntregadoEn ? "Entregado" : "Pendiente"}
+            accent={!!invitado.almuerzoEntregadoEn}
+          />
+          <Metric
+            label="Refrigerio"
+            value={invitado.refrigerioEntregadoEn ? "Entregado" : "Pendiente"}
+            accent={!!invitado.refrigerioEntregadoEn}
+          />
+          {invitado.ultimoReingresoEn && (
+            <div className="sm:col-span-4 rounded-md border border-ember-bright/20 bg-ember-bright/5 px-3 py-2 text-ember-bright">
+              Ultimo reingreso: {formatTime(invitado.ultimoReingresoEn)}
+            </div>
+          )}
+        </div>
 
         <div className="flex items-baseline justify-between gap-2 text-lg">
           <p className="text-ash text-sm md:text-base uppercase tracking-widest font-subhead">
@@ -409,6 +475,18 @@ function ResultadoCard({
                       })}
                     </span>
                   )}
+                  {i.almuerzoEntregadoEn && (
+                    <span className="text-signal-green text-sm shrink-0 flex items-center gap-0.5">
+                      <Utensils className="h-3 w-3" />
+                      Almuerzo
+                    </span>
+                  )}
+                  {i.refrigerioEntregadoEn && (
+                    <span className="text-signal-green text-sm shrink-0 flex items-center gap-0.5">
+                      <Coffee className="h-3 w-3" />
+                      Refrigerio
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -422,11 +500,61 @@ function ResultadoCard({
         <ConfirmarEntradaButton
           invitadoId={invitado.id}
           nombrePersona={invitado.nombreCompleto}
-          onConfirm={onConfirmar}
+          onConfirm={onOperacion}
+        />
+      )}
+      {canReingreso && (
+        <ReingresoButton
+          invitadoId={invitado.id}
+          nombrePersona={invitado.nombreCompleto}
+          onConfirm={onOperacion}
+        />
+      )}
+      {canAlmuerzo && (
+        <AlmuerzoButton
+          invitadoId={invitado.id}
+          entregado={!!invitado.almuerzoEntregadoEn}
+          onConfirm={onOperacion}
+        />
+      )}
+      {canRefrigerio && (
+        <RefrigerioButton
+          invitadoId={invitado.id}
+          entregado={!!invitado.refrigerioEntregadoEn}
+          onConfirm={onOperacion}
         />
       )}
     </div>
   );
+}
+
+function Metric({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div>
+      <p className="font-subhead text-[11px] uppercase tracking-[0.2em] text-ash">
+        {label}
+      </p>
+      <p className={cn("mt-1 text-base font-semibold", accent ? "text-ember-bright" : "text-bone")}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatTime(value: Date | null): string {
+  if (!value) return "Pendiente";
+  return new Date(value).toLocaleTimeString("es-CO", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function ConfirmarEntradaButton({
@@ -471,3 +599,134 @@ function ConfirmarEntradaButton({
     </div>
   );
 }
+
+function ReingresoButton({
+  invitadoId,
+  nombrePersona,
+  onConfirm,
+}: {
+  invitadoId: string;
+  nombrePersona: string;
+  onConfirm: (
+    res: Promise<Awaited<ReturnType<typeof confirmarReingreso>>>
+  ) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="mt-3">
+      <Button
+        type="button"
+        variant="secondary"
+        size="lg"
+        disabled={pending}
+        className="w-full h-14 md:h-12"
+        onClick={() => {
+          startTransition(() => {
+            onConfirm(confirmarReingreso(invitadoId));
+          });
+        }}
+      >
+        {pending ? (
+          <>
+            <RpmLoader />
+            Marcando...
+          </>
+        ) : (
+          <>
+            <RotateCcw className="h-5 w-5" />
+            Registrar reingreso de {nombrePersona.split(" ")[0]}
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function AlmuerzoButton({
+  invitadoId,
+  entregado,
+  onConfirm,
+}: {
+  invitadoId: string;
+  entregado: boolean;
+  onConfirm: (
+    res: Promise<Awaited<ReturnType<typeof marcarAlmuerzoEntregado>>>
+  ) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="mt-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        disabled={pending || entregado}
+        className="w-full h-14 md:h-12"
+        onClick={() => {
+          startTransition(() => {
+            onConfirm(marcarAlmuerzoEntregado(invitadoId));
+          });
+        }}
+      >
+        {pending ? (
+          <>
+            <RpmLoader />
+            Marcando...
+          </>
+        ) : (
+          <>
+            <Utensils className="h-5 w-5" />
+            Marcar almuerzo entregado
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+function RefrigerioButton({
+  invitadoId,
+  entregado,
+  onConfirm,
+}: {
+  invitadoId: string;
+  entregado: boolean;
+  onConfirm: (
+    res: Promise<Awaited<ReturnType<typeof marcarRefrigerioEntregado>>>
+  ) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="mt-3">
+      <Button
+        type="button"
+        variant="outline"
+        size="lg"
+        disabled={pending || entregado}
+        className="w-full h-14 md:h-12"
+        onClick={() => {
+          startTransition(() => {
+            onConfirm(marcarRefrigerioEntregado(invitadoId));
+          });
+        }}
+      >
+        {pending ? (
+          <>
+            <RpmLoader />
+            Marcando...
+          </>
+        ) : (
+          <>
+            <Coffee className="h-5 w-5" />
+            Marcar refrigerio entregado
+          </>
+        )}
+      </Button>
+    </div>
+  );
+}
+
+

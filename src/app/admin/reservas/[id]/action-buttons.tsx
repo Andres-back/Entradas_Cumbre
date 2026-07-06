@@ -36,7 +36,7 @@ export function ReactivarButton({ reservaId }: { reservaId: string }) {
       disabled={pending}
       className="min-h-[44px] md:min-h-0 w-full sm:w-auto"
       onClick={() => {
-        if (!confirm("¿Reactivar esta reserva como pendiente de pago?"))
+        if (!confirm("¿Reactivar esta reserva como aporte pendiente?"))
           return;
         startTransition(async () => {
           const res: AdminActionResult = await reactivarReserva(reservaId);
@@ -49,3 +49,4 @@ export function ReactivarButton({ reservaId }: { reservaId: string }) {
     </Button>
   );
 }
+

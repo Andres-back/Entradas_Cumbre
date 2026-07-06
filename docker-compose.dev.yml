@@ -1,16 +1,16 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: bajoelcapo-postgres-dev
+    container_name: cumbre-impacto-postgres-dev
     restart: unless-stopped
     environment:
-      POSTGRES_USER: bajoelcapo
-      POSTGRES_PASSWORD: bajoelcapo
-      POSTGRES_DB: bajoelcapo
+      POSTGRES_USER: cumbre_impacto
+      POSTGRES_PASSWORD: cumbre_impacto
+      POSTGRES_DB: cumbre_impacto
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
-      - postgres_dev:/var/lib/postgresql/data
+      - cumbre_impacto_postgres_dev:/var/lib/postgresql/data
 
 volumes:
-  postgres_dev:
+  cumbre_impacto_postgres_dev:

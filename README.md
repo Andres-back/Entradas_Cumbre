@@ -1,27 +1,48 @@
-# Bajo el Capó — Web
+# Cumbre Impacto Putumayo 2026 — Web
 
-Sitio web del evento **Bajo el Capó** (charla entre hombres, 20 jun 2026).
+Aplicación web independiente para la gestión y promoción de **Cumbre Impacto Putumayo 2026**.
+
+Lema: **Sembrando y cosechando juntos**  
+Fecha: **10 y 11 de julio de 2026**  
+Lugar: **Iglesia Fuente de Agua Viva Cruzada Cristiana, Mocoa, Putumayo**  
+Aporte de inscripción: **$45.000 COP**, incluye materiales y alimentación.
 
 ## Stack
 
-- Next.js 16.2.7 (App Router, Turbopack, `output: "standalone"`)
+- Next.js 16.2.7, App Router, Turbopack, `output: "standalone"`
 - React 19.2.4
-- Tailwind CSS 4.3.0 (config en CSS con `@theme`)
+- TypeScript
+- Tailwind CSS 4 con tokens en `src/app/globals.css`
 - Prisma 5.22 + PostgreSQL 16
-- NextAuth v5 (Credentials + PrismaAdapter)
-- GSAP 3, Lucide, Zod, bcrypt, nanoid
+- NextAuth/Auth.js v5 con credentials y Prisma adapter
+- React Hook Form, Zod, Lucide, GSAP
+- QR con `qrcode` y escáner con `html5-qrcode`
 
-Ver `D:\DEV\Bajoelcapo\05 - Arquitectura\Stack.md` para detalles.
+## Configuración central
+
+Los datos oficiales del evento están centralizados en:
+
+```text
+src/config/event.ts
+```
+
+La tabla `configuracion` sigue existiendo para edición desde `/admin/evento`; el archivo de configuración funciona como fuente oficial inicial y fallback.
 
 ## Setup local
 
-### 1. Levantar Postgres
+### 1. Levantar PostgreSQL de desarrollo
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
-Postgres queda en `localhost:5433` (externo) → `5432` (dentro del container) con user `bajoelcapo` / pass `bajoelcapo` / db `bajoelcapo`. Se usa 5433 para no chocar con otros Postgres locales que puedan estar en 5432.
+Base local independiente:
+
+- Host: `localhost`
+- Puerto: `5434`
+- Usuario: `cumbre_impacto`
+- Password: `cumbre_impacto`
+- DB: `cumbre_impacto`
 
 ### 2. Instalar dependencias
 
@@ -29,77 +50,89 @@ Postgres queda en `localhost:5433` (externo) → `5432` (dentro del container) c
 pnpm install
 ```
 
-> **Pnpm 11**: las builds nativas se aprueban vía `pnpm-workspace.yaml` (`allowBuilds`). NO agregar `pnpm.onlyBuiltDependencies` en `package.json`, ya no se lee.
+Las builds nativas necesarias están declaradas en `pnpm-workspace.yaml`.
 
 ### 3. Variables de entorno
 
-Copiar `.env.example` → `.env` y ajustar si es necesario. Los valores por defecto funcionan con el `docker-compose.dev.yml`.
+```bash
+cp .env.example .env
+```
 
-### 4. Migrar base de datos
+Antes de sembrar datos, define al menos:
+
+```env
+ADMIN_NAME="Fredy"
+ADMIN_EMAIL="fredy@gmail.com"
+ADMIN_PASSWORD="Resslow123"
+AUTH_SECRET="REEMPLAZAR_CON_SECRETO_SEGURO"
+```
+
+### 4. Prisma
 
 ```bash
 pnpm prisma:generate
-pnpm prisma:migrate
-```
-
-La primera vez crea la migración inicial. Crea las tablas `User`, `Reserva`, `Pago`.
-
-### 5. Sembrar admin
-
-```bash
+pnpm prisma db push
 pnpm prisma:seed
 ```
 
-Crea el usuario admin (Fredy) usando las credenciales en `.env` (`ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`).
-
-### 6. Correr dev
+### 5. Desarrollo
 
 ```bash
 pnpm dev
 ```
 
-Abrir <http://localhost:3000>.
+Abrir: <http://localhost:3000>
 
-## Rutas
+## Rutas principales
 
 | Ruta | Tipo | Descripción |
 |---|---|---|
-| `/` | pública | Hero BAJO EL CAPÓ + versículo |
-| `/registro` | pública | Form de registro de hermano |
-| `/login` | pública | Form de login |
-| `/mi-reserva` | protegida | Estado de la reserva del usuario |
-| `/admin` | protegida (rol=ADMIN) | Panel del admin |
-| `/api/auth/[...nextauth]` | API | NextAuth handlers |
-| `/logout` | POST | Server route para cerrar sesión |
+| `/` | Pública | Landing de Cumbre Impacto |
+| `/registro` | Pública | Registro de participante |
+| `/login` | Pública | Inicio de sesión |
+| `/reservar` | Protegida | Flujo de inscripción |
+| `/mi-reserva` | Protegida | Estado de inscripción y QR |
+| `/admin` | Admin | Dashboard |
+| `/admin/reservas` | Admin | Gestión de inscripciones |
+| `/admin/pagos` | Admin | Gestión de aportes |
+| `/admin/validar` | Admin | Control de ingreso con QR |
+| `/admin/evento` | Admin | Configuración operativa del evento |
 
 ## Scripts
 
-| Script | Comando | Uso |
-|---|---|---|
-| `pnpm dev` | `next dev` | Dev con Turbopack |
-| `pnpm build` | `next build` | Build de producción |
-| `pnpm start` | `next start` | Servidor de producción |
-| `pnpm lint` | `eslint` | Lint |
-| `pnpm typecheck` | `tsc --noEmit` | Type-check sin emitir |
-| `pnpm prisma:generate` | `prisma generate` | Generar cliente |
-| `pnpm prisma:migrate` | `prisma migrate dev` | Crear/aplicar migración dev |
-| `pnpm prisma:deploy` | `prisma migrate deploy` | Aplicar migraciones en prod |
-| `pnpm prisma:studio` | `prisma studio` | GUI de la DB |
-| `pnpm prisma:seed` | `prisma db seed` | Sembrar admin |
-| `pnpm test:e2e` | `node --env-file=.env scripts/test-e2e.mjs` | Smoke test de Prisma (admin, create user, create reserva, cleanup) |
+| Script | Uso |
+|---|---|
+| `pnpm dev` | Servidor local |
+| `pnpm typecheck` | TypeScript sin emitir |
+| `pnpm lint` | ESLint |
+| `pnpm build` | Build de producción |
+| `pnpm prisma:generate` | Generar Prisma Client |
+| `pnpm prisma db push` | Sincronizar esquema en desarrollo |
+| `pnpm prisma:deploy` | Migraciones en producción |
+| `pnpm prisma:seed` | Crear admin y configuración inicial |
+| `pnpm test:e2e` | Smoke test Prisma, requiere `.env` y DB |
 
-## Despliegue (VPS)
+## Docker
 
-1. Build: `pnpm build` (genera `.next/standalone/`).
-2. Copiar `.next/static`, `public` y `.next/standalone` al VPS.
-3. Apuntar a Postgres remoto (cambiar `DATABASE_URL`).
-4. Variables de entorno en `.env` (sin secretos en repo).
-5. Levantar con `node server.js` detrás de un proxy reverso (Caddy/Nginx).
+Desarrollo:
 
-## Convenciones
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
 
-- **Path alias**: `@/*` → `src/*`.
-- **No emails en MVP**: sin recuperación de contraseña ni notificaciones por email (backlog).
-- **Pagos por WhatsApp**: la app NO muestra cuentas bancarias. El admin comparte datos en conversación (ver ADR-005 en `06 - Decisiones`).
-- **Branding garage vintage**: ver `08 - Branding y Diseño`. **CAPÓ con tilde.**
-- **Aforo**: 150 (validar antes de aceptar reserva).
+Producción:
+
+```bash
+cp .env.production.example .env.production
+docker compose --env-file .env.production up -d --build
+```
+
+Los contenedores, volúmenes, red y base de datos usan nombres `cumbre-impacto-*` o `cumbre_impacto_*` para no reutilizar recursos del proyecto anterior.
+
+## Datos pendientes de confirmar
+
+- URL pública final (`PUBLIC_APP_URL`, `AUTH_URL`, `DOMAIN`).
+- URL de Google Maps (`MAPS_URL`).
+- WhatsApp oficial, si se desea habilitar (`WHATSAPP_ADMIN_NUMBER` / `WHATSAPP_URL`).
+- Instrucciones o método oficial de aporte, si se confirma después (`PAYMENT_ENABLED`, `PAYMENT_INSTRUCTIONS`).
+- Capacidad del evento, si se confirma (`EVENT_CAPACITY`).

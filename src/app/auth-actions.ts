@@ -91,7 +91,7 @@ export async function registrarUsuario(
     throw err;
   }
 
-  // Auto-login despues de registro. Si viene de "Saca tu llave" (next=/reservar)
+  // Auto-login despues de registro. Si viene de "Realiza tu inscripción" (next=/reservar)
   // lo mandamos ahi; si no, a /mi-reserva.
   try {
     await signIn("credentials", {
@@ -139,15 +139,19 @@ export async function loginAction(
     };
   }
 
+  const user = await prisma.user.findUnique({
+    where: { email },
+    select: { rol: true },
+  });
+  const fallbackRedirect = user?.rol === Rol.ADMIN ? "/admin" : "/mi-reserva";
+
   try {
     await signIn("credentials", {
       email,
       password,
       // Si viene de un next especifico (ej. /admin via from, o /reservar
-      // via next), lo respetamos. Si no, mandamos a /mi-reserva (vista
-      // segura para cualquier usuario logueado; los admins iran a /admin
-      // desde su header).
-      redirectTo: safeNext || "/mi-reserva",
+      // via next), lo respetamos. Si no, mandamos al destino natural por rol.
+      redirectTo: safeNext || fallbackRedirect,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -158,3 +162,5 @@ export async function loginAction(
 
   return { error: null };
 }
+
+

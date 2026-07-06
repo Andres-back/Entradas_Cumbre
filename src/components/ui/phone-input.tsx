@@ -51,7 +51,9 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
           className="flex h-full items-center gap-1.5 px-3 text-bone font-mono text-sm border-r border-taller-iron bg-taller-night select-none"
           aria-hidden="true"
         >
-          <span aria-hidden="true" className="text-base leading-none">🇨🇴</span>
+          <span aria-hidden="true" className="text-[11px] font-subhead tracking-wider text-ash">
+            CO
+          </span>
           <span className="text-ember-bright font-subhead">+57</span>
         </span>
         <input
@@ -77,3 +79,5 @@ export const PhoneInput = forwardRef<HTMLInputElement, PhoneInputProps>(
 function stripToDigits(s: string): string {
   return (s ?? "").replace(/\D/g, "");
 }
+
+

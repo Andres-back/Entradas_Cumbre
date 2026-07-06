@@ -8,7 +8,7 @@ ALTER TABLE "users" ADD COLUMN "configuracionesEditadas" TEXT;
 -- CreateTable
 CREATE TABLE "configuracion" (
     "id" TEXT NOT NULL DEFAULT 'singleton',
-    "nombre" TEXT NOT NULL DEFAULT 'Bajo el Capo',
+    "nombre" TEXT NOT NULL DEFAULT 'Cumbre Impacto',
     "fecha" TIMESTAMP(3) NOT NULL,
     "puertas" TEXT NOT NULL DEFAULT '5:45 pm',
     "lugar" TEXT NOT NULL DEFAULT 'Iglesia Cruzada Cristiana Fuente de Agua Viva',
@@ -16,7 +16,7 @@ CREATE TABLE "configuracion" (
     "ciudad" TEXT,
     "aforo" INTEGER NOT NULL DEFAULT 150,
     "precioPorPersona" INTEGER NOT NULL DEFAULT 25000,
-    "organizadorNombre" TEXT NOT NULL DEFAULT 'Fredy',
+    "organizadorNombre" TEXT NOT NULL DEFAULT 'el equipo organizador',
     "organizadorEmail" TEXT NOT NULL DEFAULT 'fredy@gmail.com',
     "organizadorTelefono" TEXT NOT NULL DEFAULT '+573118268444',
     "organizadorWhatsapp" TEXT NOT NULL DEFAULT '573118268444',

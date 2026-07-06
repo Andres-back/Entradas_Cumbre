@@ -32,9 +32,8 @@ const specialElite = Special_Elite({
 });
 
 export const metadata: Metadata = {
-  title: "Bajo el Capó | Hombres reales. Conversaciones reales. Vida real.",
-  description:
-    "Una charla entre hombres para hablar de lo que callamos. 20 de junio, 6 pm. Iglesia Cruzada Cristiana. Incluye cena.",
+  title: "Cumbre Impacto Putumayo 2026 | Mocoa",
+  description: "Cumbre Impacto Putumayo 2026. Sembrando y cosechando juntos. 10 y 11 de julio de 2026 en Mocoa, Putumayo. Aporte de inscripción: $45.000 COP, incluye materiales y alimentación.",
 };
 
 export default function RootLayout({
@@ -44,7 +43,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es"
+      lang="es-CO"
       className={`${alfaSlabOne.variable} ${oswald.variable} ${workSans.variable} ${specialElite.variable} antialiased`}
     >
       <body className="min-h-screen flex flex-col font-body">
@@ -56,9 +55,9 @@ export default function RootLayout({
           position="bottom-center"
           toastOptions={{
             style: {
-              background: "#0E1A2D",
-              color: "#F5EDE0",
-              border: "1px solid #1E2A3D",
+              background: "#03172A",
+              color: "#FFFFFF",
+              border: "1px solid #073B5C",
               fontFamily: "var(--font-work-sans)",
             },
           }}
@@ -67,3 +66,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+
+

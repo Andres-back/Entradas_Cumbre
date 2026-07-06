@@ -1,69 +1,92 @@
-import {
-  Utensils,
-  Users,
-  Wrench,
-  Heart,
-  DoorOpen,
-  Banknote,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
+import {
+  ArrowDown,
+  CalendarDays,
+  CheckCircle2,
+  HeartHandshake,
+  Leaf,
+  MapPin,
+  Sprout,
+  UsersRound,
+  Wallet,
+} from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { SiteHeader } from "@/components/brand/SiteHeader";
-import { HeroReveal } from "@/components/hero/HeroReveal";
-import { getConfiguracion, toValidDate } from "@/lib/constants";
+import { buttonVariants } from "@/components/ui/button";
+import { HomeAnimations } from "@/components/home/HomeAnimations";
+import { EVENT_CONFIG, EVENT_JSON_LD } from "@/config/event";
+import { cn } from "@/lib/utils";
 
-const queEsperar: Array<{
-  icon: LucideIcon;
-  title: string;
-  desc: string;
-}> = [
-  {
-    icon: Heart,
-    title: "Conversaciones reales",
-    desc: "Sin máscaras, sin filtros. Hablamos de lo que callamos como hombres: dudas, miedos, fracasos, éxito.",
-  },
-  {
-    icon: Users,
-    title: "Espacio entre hermanos",
-    desc: "Cena incluida. Nos sentamos, comemos y hablamos. Sin formalidades.",
-  },
-  {
-    icon: Wrench,
-    title: "Coordinado por Fredy",
-    desc: "Fredy de la Iglesia Cruzada lidera la noche. Tú solo llegas y abres el capó.",
-  },
-];
-
-// Genera metadata dinamica basada en la configuracion de la BD.
-// Asi el <title> y <description> reflejan siempre la fecha y datos reales.
 export async function generateMetadata(): Promise<Metadata> {
-  const cfg = await getConfiguracion();
-  const fecha = toValidDate(cfg.fecha, new Date("2026-06-20T18:00:00-05:00"));
-  const fechaCorta = new Intl.DateTimeFormat("es-CO", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(fecha);
-  const hora = new Intl.DateTimeFormat("es-CO", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(fecha);
   return {
-    title: `${cfg.nombre} | ${fechaCorta} · ${hora}`,
-    description: `Una charla entre hombres para hablar de lo que callamos. ${fechaCorta}, ${hora}, ${cfg.lugar}${cfg.barrio ? `, ${cfg.barrio}` : ""}. Cena incluida.`,
+    title: "Cumbre Impacto Putumayo 2026 | Mocoa",
+    description:
+      "Cumbre Impacto Putumayo 2026. Sembrando y cosechando juntos. 10 y 11 de julio de 2026 en Mocoa, Putumayo. Aporte de inscripción: $45.000 COP, incluye materiales y alimentación.",
+    applicationName: EVENT_CONFIG.name,
+    metadataBase: new URL(process.env.PUBLIC_APP_URL ?? "http://localhost:3000"),
+    alternates: { canonical: "/" },
+    openGraph: {
+      title: "Cumbre Impacto Putumayo 2026 | Mocoa",
+      description:
+        "Sembrando y cosechando juntos. 10 y 11 de julio de 2026 en Mocoa, Putumayo.",
+      siteName: EVENT_CONFIG.name,
+      locale: "es_CO",
+      type: "website",
+      images: [
+        {
+          url: EVENT_CONFIG.wallpaper,
+          width: 1200,
+          height: 630,
+          alt: "Imagen oficial de Cumbre Impacto Putumayo 2026",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Cumbre Impacto Putumayo 2026 | Mocoa",
+      description:
+        "Sembrando y cosechando juntos. Aporte de inscripción: $45.000 COP.",
+      images: [EVENT_CONFIG.wallpaper],
+    },
+    robots: { index: true, follow: true },
   };
 }
 
+const quickInfo = [
+  { label: "Fecha", value: EVENT_CONFIG.displayDate, icon: CalendarDays },
+  { label: "Lugar", value: "Iglesia Fuente de Agua Viva", icon: MapPin },
+  { label: "Ciudad", value: EVENT_CONFIG.city, icon: UsersRound },
+  { label: "Aporte", value: EVENT_CONFIG.registrationContributionDisplay, icon: Wallet },
+  { label: "Incluye", value: "Materiales y alimentación", icon: CheckCircle2 },
+];
+
+const pillars = [
+  {
+    kicker: "01 — Encuentro",
+    title: "Una comunidad unida",
+    desc: "Un espacio para encontrarnos, compartir experiencias y fortalecer relaciones que generen impacto.",
+    icon: UsersRound,
+  },
+  {
+    kicker: "02 — Crecimiento",
+    title: "Sembrar para crecer",
+    desc: "Momentos orientados a fortalecer la fe, el propósito y el compromiso con nuestra comunidad.",
+    icon: Sprout,
+  },
+  {
+    kicker: "03 — Impacto",
+    title: "Cosechar juntos",
+    desc: "Una invitación a convertir lo aprendido en acciones que produzcan transformación.",
+    icon: HeartHandshake,
+  },
+];
+
 export default async function Home() {
   const session = await auth();
-  const cfg = await getConfiguracion();
+  let ctaHref = "/registro?next=/reservar";
 
-  // Determinar CTA: registrarse, reservar, o ver reserva existente
-  let ctaHref = "/registro";
   if (session?.user) {
     const reserva = await prisma.reserva.findUnique({
       where: { userId: session.user.id },
@@ -72,176 +95,349 @@ export default async function Home() {
     ctaHref = reserva ? "/mi-reserva" : "/reservar";
   }
 
-  // Re-hidratar fecha por si unstable_cache la serializo a string.
-  const fecha = toValidDate(cfg.fecha, new Date("2026-06-20T18:00:00-05:00"));
-  const precioFmt = new Intl.NumberFormat("es-CO").format(cfg.precioPorPersona);
-
-  // Construir datos para el info strip. Si hay hora de puertas definida, mostrarla;
-  // si no, mostrar solo Cena + Valor.
-  const datos: Array<{ icon: LucideIcon; label: string; value: string }> = [
-    { icon: Utensils, label: "Cena", value: "Incluida" },
-  ];
-  if (cfg.puertas) {
-    datos.push({ icon: DoorOpen, label: "Puertas", value: cfg.puertas });
-  }
-  datos.push({
-    icon: Banknote,
-    label: "Valor",
-    value: `$${precioFmt} COP`,
-  });
-
   return (
     <>
-      <SiteHeader />
-      <main className="flex-1">
-        {/* Hero full-bleed con foto de fondo + contenido editorial */}
-        <HeroReveal ctaHref={ctaHref} />
+      <SiteHeader ctaHref={ctaHref} />
+      <main id="main-content" className="flex-1 overflow-hidden">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(EVENT_JSON_LD) }}
+        />
 
-        {/* Info strip horizontal: un solo renglon, sin cajas.
-            El hero ya mostró cuándo y dónde. Aquí: logística y costo.
-            Mobile: items centrados, icono + label + value en línea.
-            Desktop: row con divide-x entre items. */}
-        <section className="py-8 sm:py-14 md:py-16 px-5 sm:px-6 border-b border-taller-iron/40">
-          <div className="container mx-auto max-w-5xl">
-            <p className="font-subhead text-[11px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.3em] text-ember-bright text-center mb-5 sm:mb-8">
-              Lo que hay que saber
-            </p>
-            <ul className="flex flex-col sm:grid sm:grid-cols-3 items-stretch sm:items-center justify-center gap-3 sm:gap-6 md:gap-0 stagger-children">
-              {datos.map((d, i) => (
-                <li
-                  key={d.label}
-                  className={`flex items-center justify-center sm:justify-center gap-2.5 sm:gap-4 ${
-                    i > 0
-                      ? "sm:border-l sm:border-taller-iron/50 sm:pl-6"
-                      : ""
-                  } ${i === 0 ? "sm:pr-6" : ""} py-2 sm:py-0`}
-                >
-                  <d.icon
-                    className="h-5 w-5 sm:h-5 sm:w-5 text-ember-bright shrink-0"
-                    strokeWidth={1.75}
-                    aria-hidden
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-subhead text-[10px] sm:text-[10px] md:text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] text-ash leading-tight">
-                      {d.label}
-                    </span>
-                    <span className="font-display text-base sm:text-base text-cream md:text-lg leading-tight mt-0.5">
-                      {d.value}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
+        <section
+          id="inicio"
+          className="relative min-h-[100svh] overflow-hidden bg-taller-night"
+          aria-label="Inicio"
+        >
+          <div
+            data-anim-hero-image
+            className="absolute inset-0 bg-cover bg-center md:bg-[position:center_42%] will-change-transform"
+            style={{ backgroundImage: `url(${EVENT_CONFIG.wallpaper})` }}
+            role="img"
+            aria-label="Imagen oficial de Cumbre Impacto Putumayo 2026"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,23,42,0.94)_0%,rgba(3,23,42,0.78)_36%,rgba(3,23,42,0.36)_68%,rgba(3,23,42,0.16)_100%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_45%,rgba(52,213,255,0.22),transparent_34%),linear-gradient(180deg,rgba(3,23,42,0.2),#03172a_96%)]" />
 
-        {/* Qué esperar: lista vertical editorial (sin cajas).
-            Números 01/02/03 a la izquierda, texto a la derecha.
-            Estilo revista, no grid de cards. */}
-        <section className="py-10 sm:py-20 md:py-24 px-5 sm:px-6">
-          <div className="container mx-auto max-w-3xl">
-            <div className="text-center mb-8 sm:mb-14">
-              <p className="font-subhead text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.3em] text-ember-bright">
-                El taller
-              </p>
-              <h2 className="font-display text-2xl sm:text-3xl md:text-5xl text-cream mt-2 sm:mt-3 text-balance">
-                Qu&eacute; esperar
-              </h2>
-              <p className="text-bone mt-3 sm:mt-4 max-w-xl mx-auto leading-relaxed text-sm sm:text-base text-balance">
-                No es un culto. No es una conferencia. Es un taller entre
-                hombres para abrir el cap&oacute; y ver qu&eacute; hay debajo.
-              </p>
-            </div>
-            <ol className="space-y-6 sm:space-y-10 md:space-y-12 stagger-children">
-              {queEsperar.map((q, i) => {
-                const Icon = q.icon;
-                return (
-                  <li
-                    key={q.title}
-                    className="flex items-start gap-4 sm:gap-6 md:gap-8"
-                  >
-                    <span
-                      aria-hidden
-                      className="font-display text-4xl sm:text-5xl md:text-6xl text-ember-rust/30 leading-none shrink-0 select-none w-10 sm:w-16 md:w-20"
-                    >
-                      0{i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0 pt-0.5 sm:pt-1">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Icon
-                          className="h-5 w-5 sm:h-6 sm:w-6 text-ember-bright shrink-0"
-                          strokeWidth={1.75}
-                          aria-hidden
-                        />
-                        <h3 className="font-display text-lg sm:text-xl md:text-2xl text-cream leading-tight">
-                          {q.title}
-                        </h3>
-                      </div>
-                      <p className="text-bone mt-2 sm:mt-3 leading-relaxed text-sm sm:text-sm md:text-base">
-                        {q.desc}
-                      </p>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-        </section>
-
-        {/* Rust divider */}
-        <div className="container mx-auto max-w-3xl px-5 sm:px-6">
-          <div className="rust-divider" />
-        </div>
-
-        {/* Versículo: editorial, con drop-cap dramático y comillas decorativas */}
-        <section className="py-12 sm:py-20 md:py-28 px-5 sm:px-6">
-          <div className="container mx-auto max-w-3xl">
-            <p className="mb-6 sm:mb-8 font-subhead text-[11px] sm:text-xs uppercase tracking-[0.22em] sm:tracking-[0.3em] text-ember-bright text-center">
-              Versículo ancla
-            </p>
-
-            {/* Comilla decorativa superior */}
-            <div className="text-center mb-4 sm:mb-6">
-              <span
-                className="font-display text-5xl sm:text-6xl md:text-7xl text-ember-rust/20 leading-none select-none"
-                aria-hidden
+          <div className="relative z-10 mx-auto flex min-h-[100svh] max-w-7xl flex-col justify-center px-5 pb-20 pt-28 sm:px-8 lg:px-10">
+            <div className="max-w-2xl">
+              <p
+                data-anim-hero-kicker
+                className="font-subhead text-xs uppercase tracking-[0.35em] text-ember-bright sm:text-sm"
               >
-                &ldquo;
-              </span>
+                Edición 2026
+              </p>
+              <h1
+                data-anim-hero-title
+                className="mt-5 font-display text-[clamp(3.75rem,13vw,8.75rem)] leading-[0.88] text-cream text-balance"
+              >
+                Cumbre
+                <span className="block text-ember-bright">Impacto</span>
+              </h1>
+              <p
+                data-anim-hero-subtitle
+                className="mt-4 font-subhead text-lg uppercase tracking-[0.28em] text-cumbre-mist sm:text-2xl"
+              >
+                {EVENT_CONFIG.slogan}
+              </p>
+              <p
+                data-anim-hero-body
+                className="mt-5 max-w-xl text-base leading-8 text-cumbre-mist sm:text-lg"
+              >
+                Un encuentro para crecer, compartir y sembrar juntos una
+                transformación que impacte nuestra región.
+              </p>
+              <div
+                data-anim-hero-chips
+                className="mt-7 flex flex-wrap gap-3 text-sm text-cumbre-mist"
+              >
+                <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 backdrop-blur">
+                  <CalendarDays className="h-4 w-4 text-ember-bright" />
+                  {EVENT_CONFIG.displayDate}
+                </span>
+                <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/8 px-4 backdrop-blur">
+                  <MapPin className="h-4 w-4 text-ember-bright" />
+                  {EVENT_CONFIG.venue.replace(" Cruzada Cristiana", "")}
+                </span>
+              </div>
+              <div
+                data-anim-hero-cta
+                className="mt-9 flex flex-col gap-3 sm:flex-row"
+              >
+                <Link
+                  href={ctaHref}
+                  className={cn(buttonVariants({ size: "lg" }), "min-h-14")}
+                >
+                  ¡Inscríbete ahora!
+                </Link>
+                <Link
+                  href="#la-cumbre"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "min-h-14"
+                  )}
+                >
+                  Conoce la cumbre
+                </Link>
+              </div>
             </div>
+          </div>
 
-            <blockquote className="font-body text-xl sm:text-2xl md:text-3xl lg:text-4xl italic leading-relaxed sm:leading-loose text-cream text-left text-balance">
-              <span className="font-display text-[56px] sm:text-7xl md:text-8xl text-ember-rust float-left mr-2 sm:mr-3 leading-[0.8] mt-1 sm:mt-2 select-none">
-                L
-              </span>
-              a gente se fija en las apariencias, pero yo me fijo en el{" "}
-              <span className="font-semibold not-italic text-ember-bright relative inline-block">
-                coraz&oacute;n
-                <span
-                  className="absolute -bottom-1 left-0 right-0 h-0.5 bg-ember-rust/40"
-                  aria-hidden
-                />
-              </span>
-              .
-            </blockquote>
+          <a
+            href="#informacion"
+            aria-label="Bajar a información rápida"
+            data-anim-hero-scroll
+            className="absolute bottom-7 left-1/2 z-10 hidden -translate-x-1/2 text-cumbre-mist sm:inline-flex"
+          >
+            <ArrowDown className="h-6 w-6" />
+          </a>
+        </section>
 
-            <p className="mt-6 sm:mt-8 font-subhead text-[11px] sm:text-sm uppercase tracking-[0.22em] sm:tracking-[0.3em] text-ash text-center">
-              &mdash; 1 Samuel 16:7
+        <section
+          id="informacion"
+          data-anim-section
+          className="border-y border-white/10 bg-taller-steel/70 px-5 py-8 backdrop-blur"
+        >
+          <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {quickInfo.map((item) => {
+              const Icon = item.icon;
+              return (
+                <div
+                  key={item.label}
+                  className="glass-panel hover-lift rounded-lg p-4"
+                >
+                  <Icon className="mb-4 h-5 w-5 text-ember-bright" />
+                  <p className="font-subhead text-xs uppercase tracking-[0.22em] text-cumbre-mist/70">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-cream">
+                    {item.value}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section
+          id="la-cumbre"
+          data-anim-section
+          className="relative bg-taller-night px-5 py-20 sm:px-8 lg:py-28"
+        >
+          <div
+            className="absolute inset-0 opacity-25 cumbre-topography"
+            aria-hidden
+          />
+          <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="font-subhead text-xs uppercase tracking-[0.32em] text-ember-bright">
+                La Cumbre
+              </p>
+              <h2 className="mt-4 font-display text-4xl leading-tight text-cream sm:text-6xl text-balance">
+                Una cumbre para sembrar impacto
+              </h2>
+            </div>
+            <p className="text-lg leading-9 text-cumbre-mist sm:text-xl">
+              Cumbre Impacto Putumayo 2026 es un espacio de encuentro,
+              crecimiento y unidad. Dos días para compartir, fortalecer nuestra
+              fe y sembrar acciones que produzcan frutos en nuestras
+              comunidades.
             </p>
           </div>
         </section>
 
-        {/* Tagline bar */}
-        <footer className="border-t border-ember-rust/40 bg-ember-rust/10 py-5 sm:py-8 px-5 sm:px-6">
-          <div className="container mx-auto max-w-6xl text-center">
-            <p className="font-subhead text-[13px] sm:text-lg uppercase tracking-[0.18em] sm:tracking-[0.3em] text-ember-bright md:text-xl leading-relaxed">
-              Hombres reales. Conversaciones reales. Vida real.
-            </p>
-            <p className="mt-2.5 sm:mt-4 text-[11px] sm:text-sm text-ash">
-              &copy; 2026 Iglesia Cruzada Cristiana Fuente de Agua Viva
-            </p>
+        <section
+          data-anim-section
+          className="bg-[#062b49] px-5 py-20 sm:px-8 lg:py-24"
+        >
+          <div
+            data-anim-card-group
+            className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-3"
+          >
+            {pillars.map((pillar) => {
+              const Icon = pillar.icon;
+              return (
+                <article
+                  key={pillar.title}
+                  className="glass-panel hover-lift card-shine rounded-lg p-6 shadow-card"
+                >
+                  <Icon className="h-8 w-8 text-ember-bright" />
+                  <p className="mt-8 font-subhead text-xs uppercase tracking-[0.24em] text-cumbre-mist/70">
+                    {pillar.kicker}
+                  </p>
+                  <h3 className="mt-3 text-2xl font-semibold text-cream">
+                    {pillar.title}
+                  </h3>
+                  <p className="mt-4 leading-7 text-cumbre-mist">
+                    {pillar.desc}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+
+        <section
+          id="aporte"
+          data-anim-section
+          className="bg-taller-night px-5 py-20 sm:px-8 lg:py-28"
+        >
+          <div className="mx-auto grid max-w-7xl gap-8 rounded-lg border border-ember-bright/25 bg-[linear-gradient(135deg,rgba(0,174,239,0.14),rgba(255,255,255,0.04))] p-6 sm:p-10 lg:grid-cols-[1fr_0.85fr] lg:items-center">
+            <div>
+              <p className="font-subhead text-xs uppercase tracking-[0.3em] text-ember-bright">
+                Aporte de inscripción
+              </p>
+              <h2 className="mt-4 font-display text-5xl text-cream sm:text-7xl">
+                {EVENT_CONFIG.registrationContributionDisplay}
+              </h2>
+              <p className="mt-5 max-w-2xl text-lg leading-8 text-cumbre-mist">
+                Tu aporte de inscripción incluye los materiales necesarios para
+                el desarrollo del evento y la alimentación durante la Cumbre.
+              </p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-taller-night/55 p-5">
+              <p className="font-subhead text-xs uppercase tracking-[0.24em] text-cumbre-mist/70">
+                Incluye
+              </p>
+              <ul className="mt-4 space-y-3 text-cream">
+                {EVENT_CONFIG.registrationIncludes.map((item) => (
+                  <li key={item} className="flex items-center gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-ember-bright" /> {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href={ctaHref}
+                className={cn(buttonVariants({ size: "lg" }), "mt-7 w-full min-h-14")}
+              >
+                Inscríbete ahora
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section
+          data-anim-verse
+          className="relative overflow-hidden bg-[#073b5c] px-5 py-20 text-center sm:px-8 lg:py-24"
+        >
+          <Leaf className="animate-float-slow mx-auto h-10 w-10 text-ember-bright" />
+          <p className="mt-5 font-subhead text-xs uppercase tracking-[0.3em] text-cumbre-mist/70">
+            Versículo ancla
+          </p>
+          <h2 className="mt-3 font-display text-4xl text-cream sm:text-6xl">
+            {EVENT_CONFIG.biblicalReference}
+          </h2>
+          <p className="mt-5 text-2xl text-cumbre-mist">
+            {EVENT_CONFIG.slogan}.
+          </p>
+        </section>
+
+        <section
+          id="ubicacion"
+          data-anim-section
+          className="bg-taller-night px-5 py-20 sm:px-8 lg:py-28"
+        >
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-stretch">
+            <div>
+              <p className="font-subhead text-xs uppercase tracking-[0.3em] text-ember-bright">
+                Ubicación
+              </p>
+              <h2 className="mt-4 font-display text-4xl text-cream sm:text-6xl">
+                Nos encontramos en Mocoa
+              </h2>
+              <div className="mt-7 space-y-2 text-lg text-cumbre-mist">
+                <p className="font-semibold text-cream">{EVENT_CONFIG.venue}</p>
+                <p>{EVENT_CONFIG.addressLine1}</p>
+                <p>{EVENT_CONFIG.addressLine2}</p>
+                <p>{EVENT_CONFIG.city}</p>
+              </div>
+              {EVENT_CONFIG.mapsUrl ? (
+                <a
+                  href={EVENT_CONFIG.mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: "secondary", size: "lg" }),
+                    "mt-7"
+                  )}
+                >
+                  Ver ubicación
+                </a>
+              ) : (
+                <p className="mt-7 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-cumbre-mist">
+                  El enlace del mapa está pendiente de configuración.
+                </p>
+              )}
+            </div>
+            <div className="flex min-h-[320px] items-center justify-center rounded-lg border border-white/10 bg-[linear-gradient(135deg,rgba(52,213,255,0.12),rgba(255,255,255,0.04))] p-6 text-center">
+              <div>
+                <MapPin className="mx-auto h-10 w-10 text-ember-bright" />
+                <p className="mt-4 font-subhead uppercase tracking-[0.22em] text-cumbre-mist/70">
+                  Mapa configurable
+                </p>
+                <p className="mt-3 text-cream">
+                  {EVENT_CONFIG.address}, {EVENT_CONFIG.city}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="inscribete"
+          data-anim-section
+          className="bg-[#062b49] px-5 py-20 text-center sm:px-8 lg:py-24"
+        >
+          <h2 className="mx-auto max-w-3xl font-display text-4xl text-cream sm:text-6xl">
+            Es tiempo de sembrar impacto
+          </h2>
+          <p className="mt-5 text-lg text-cumbre-mist">
+            Sé parte de Cumbre Impacto Putumayo 2026.
+          </p>
+          <p className="mt-5 font-semibold text-cream">
+            Aporte de inscripción:{" "}
+            {EVENT_CONFIG.registrationContributionDisplay}
+          </p>
+          <p className="text-cumbre-mist">Incluye materiales y alimentación.</p>
+          <p className="mt-2 text-sm uppercase tracking-[0.18em] text-cumbre-mist/70">
+            {EVENT_CONFIG.displayDate} · {EVENT_CONFIG.city}
+          </p>
+          <Link
+            href={ctaHref}
+            className={cn(buttonVariants({ size: "lg" }), "mt-8 min-h-14")}
+          >
+            ¡Inscríbete!
+          </Link>
+        </section>
+
+        <footer className="border-t border-white/10 bg-taller-night px-5 py-10 sm:px-8">
+          <div className="mx-auto flex max-w-7xl flex-col gap-6 text-cumbre-mist md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="font-display text-2xl text-cream">
+                {EVENT_CONFIG.name}
+              </p>
+              <p className="mt-2">{EVENT_CONFIG.slogan}</p>
+              <p className="mt-4 text-sm">
+                {EVENT_CONFIG.displayDate} · {EVENT_CONFIG.city}
+              </p>
+              <p className="text-sm">{EVENT_CONFIG.venue}</p>
+              <p className="text-sm">{EVENT_CONFIG.socialHandle}</p>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Link href={ctaHref} className="text-ember-bright hover:underline">
+                Inscripción
+              </Link>
+              {EVENT_CONFIG.mapsUrl && (
+                <a href={EVENT_CONFIG.mapsUrl} className="text-ember-bright hover:underline">
+                  Ubicación
+                </a>
+              )}
+              <span>© 2026</span>
+            </div>
           </div>
         </footer>
+
+        <HomeAnimations />
       </main>
     </>
   );

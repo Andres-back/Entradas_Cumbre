@@ -16,7 +16,7 @@ import { EstadoReserva } from "@prisma/client";
 import DashboardCharts from "./dashboard-charts";
 
 export const metadata = {
-  title: "Panel admin | Bajo el Capó",
+  title: "Panel admin | Cumbre Impacto",
 };
 
 const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
@@ -27,8 +27,8 @@ const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
 };
 
 const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Pago pendiente",
-  PARCIAL: "Pago parcial",
+  PAGO_PENDIENTE: "Aporte pendiente",
+  PARCIAL: "Aporte parcial",
   ASISTIO: "Asistió",
   CANCELADO: "Cancelado",
 };
@@ -77,7 +77,7 @@ export default async function AdminDashboard() {
     (acc, r) => acc + r.invitados.length,
     0
   );
-  // "Confirmadas" = al menos 1 invitado pagado
+  // "Confirmadas" = inscripciones con aporte confirmado o asistencia.
   const confirmadas = todas.filter(
     (r) => r.estado === EstadoReserva.PARCIAL || r.estado === EstadoReserva.ASISTIO
   );
@@ -134,7 +134,7 @@ export default async function AdminDashboard() {
           label="Reservas"
           value={totalReservas}
           numeric
-          sub={`${totalAsistentes} invitados`}
+          sub={`${totalAsistentes} asistentes`}
         />
         <MetricCard
           icon={CheckCircle2}
@@ -182,7 +182,7 @@ export default async function AdminDashboard() {
                     </p>
                     <p className="text-ash text-base">
                       {r.invitados.length}{" "}
-                      {r.invitados.length === 1 ? "invitado" : "invitados"} ·{" "}
+                      {r.invitados.length === 1 ? "asistente" : "asistentes"} ·{" "}
                       {formatCOP(r.valorTotal)}
                     </p>
                   </div>
@@ -245,3 +245,5 @@ function MetricCard({ icon: Icon, label, value, sub = "", variant = "default", n
     </Card>
   );
 }
+
+

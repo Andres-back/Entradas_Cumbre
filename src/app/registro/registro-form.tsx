@@ -66,7 +66,7 @@ export function RegistroForm({ next }: { next?: string }) {
   };
 
   if (isPending) {
-    return <RpmLoader label="Forjando tu llave..." />;
+    return <RpmLoader label="Creando tu inscripción..." />;
   }
 
   return (
@@ -175,3 +175,6 @@ export function RegistroForm({ next }: { next?: string }) {
     </form>
   );
 }
+
+
+

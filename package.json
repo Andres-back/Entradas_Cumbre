@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "cumbre-impacto-putumayo",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -23,6 +23,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@prisma/client": "^5.22.0",
     "@tanstack/react-table": "^8.21.3",
+    "animejs": "^4.5.0",
     "bcrypt": "^5.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

@@ -23,8 +23,8 @@ DECLARE
 BEGIN
   FOR r IN SELECT i.id FROM "ingresos" i WHERE i."codigo" IS NULL
   LOOP
-    -- Generar codigo con el mismo formato BC-XXXXXXXX (8 chars, alfabeto sin ambiguos)
-    code := 'BC-' || (
+    -- Generar codigo con el mismo formato CI-XXXXXXXX (8 chars, alfabeto sin ambiguos)
+    code := 'CI-' || (
       SELECT string_agg(
         substr('ABCDEFGHJKMNPQRSTUVWXYZ23456789', 1 + (random() * 31)::int, 1),
         ''

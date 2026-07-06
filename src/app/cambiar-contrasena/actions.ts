@@ -70,3 +70,5 @@ export async function cambiarContrasenaObligatoria(
 export async function salirSesion(): Promise<void> {
   await signOut({ redirectTo: "/" });
 }
+
+

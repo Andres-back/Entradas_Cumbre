@@ -2,12 +2,11 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { EstadoInvitado, EstadoReserva, MedioPago, Prisma } from "@prisma/client";
+import { EstadoInvitado, EstadoReserva, MedioPago, Prisma, Rol } from "@prisma/client";
 
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import {
-  ADMIN_EMAIL,
   MESA_CAPACIDAD_MAX,
   MESA_CAPACIDAD_MIN,
   getConfiguracion,
@@ -20,6 +19,7 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import type {
   AdminActionResult,
   ConfirmarIngresoResult,
+  OperacionInvitadoResult,
   ValidarIngreso,
   ValidarReserva,
   ValidarResult,
@@ -33,7 +33,7 @@ const idSchema = z.string().regex(/^[a-z0-9]{25}$/, "ID inválido");
 
 async function requireAdmin() {
   const session = await auth();
-  if (!session?.user || session.user.email !== ADMIN_EMAIL) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     redirect("/login?next=/admin");
   }
   return session;
@@ -47,7 +47,7 @@ function normalizeCode(input: string): string {
   return trimmed;
 }
 
-const CODE_REGEX = /^BC-[A-Z2-9]{8}$/;
+const CODE_REGEX = /^CI-[A-Z2-9]{8}$/;
 
 // ============================================================
 // Serializers
@@ -68,8 +68,33 @@ type ReservaForSerialize = {
     mesa?: { numero: number } | null;
     silla: number | null;
     registradoEn: Date | null;
+    ultimoReingresoEn: Date | null;
+    reingresos: number;
+    almuerzoEntregadoEn: Date | null;
+    refrigerioEntregadoEn: Date | null;
   }[];
 };
+
+type InvitadoForSerialize = ReservaForSerialize["invitados"][number];
+
+function serializeInvitado(invitado: InvitadoForSerialize): ValidarIngreso {
+  return {
+    id: invitado.id,
+    numero: invitado.numero,
+    nombreCompleto: invitado.nombreCompleto,
+    telefono: invitado.telefono,
+    estado: invitado.estado,
+    codigo: invitado.codigo,
+    mesaId: invitado.mesaId,
+    mesaNumero: invitado.mesa?.numero ?? null,
+    silla: invitado.silla,
+    registradoEn: invitado.registradoEn,
+    ultimoReingresoEn: invitado.ultimoReingresoEn,
+    reingresos: invitado.reingresos,
+    almuerzoEntregadoEn: invitado.almuerzoEntregadoEn,
+    refrigerioEntregadoEn: invitado.refrigerioEntregadoEn,
+  };
+}
 
 function serializeReserva(reserva: ReservaForSerialize): ValidarReserva {
   const cantidadIngresados = reserva.invitados.filter(
@@ -82,18 +107,7 @@ function serializeReserva(reserva: ReservaForSerialize): ValidarReserva {
     cantidadIngresados,
     invitados: reserva.invitados
       .sort((a, b) => a.numero - b.numero)
-      .map((i) => ({
-        id: i.id,
-        numero: i.numero,
-        nombreCompleto: i.nombreCompleto,
-        telefono: i.telefono,
-        estado: i.estado,
-        codigo: i.codigo,
-        mesaId: i.mesaId,
-        mesaNumero: i.mesa?.numero ?? null,
-        silla: i.silla,
-        registradoEn: i.registradoEn,
-      })),
+      .map(serializeInvitado),
     nombre: reserva.user.nombreCompleto,
     telefono: reserva.user.telefono,
   };
@@ -115,7 +129,7 @@ export async function validarCodigo(
     return {
       estado: "no_encontrado",
       codigo: raw,
-      mensaje: "Código inválido. Verifica el formato BC-XXXXXXXX.",
+      mensaje: "Código inválido. Verifica el formato CI-XXXXXXXX.",
     };
   }
 
@@ -144,18 +158,7 @@ export async function validarCodigo(
   }
 
   const reservaPayload = serializeReserva(invitado.reserva);
-  const invitadoPayload: ValidarIngreso = {
-    id: invitado.id,
-    numero: invitado.numero,
-    nombreCompleto: invitado.nombreCompleto,
-    telefono: invitado.telefono,
-    estado: invitado.estado,
-    codigo: invitado.codigo,
-    mesaId: invitado.mesaId,
-    mesaNumero: invitado.mesa?.numero ?? null,
-    silla: invitado.silla,
-    registradoEn: invitado.registradoEn,
-  };
+  const invitadoPayload = serializeInvitado(invitado);
 
   if (invitado.reserva.estado === EstadoReserva.CANCELADO) {
     return {
@@ -171,7 +174,7 @@ export async function validarCodigo(
     return {
       estado: "no_pagado",
       codigo,
-      mensaje: "Invitado pendiente de pago. Código aún no habilitado.",
+      mensaje: "Invitado aporte pendiente. Código aún no habilitado.",
       reserva: reservaPayload,
       invitado: invitadoPayload,
     };
@@ -179,14 +182,14 @@ export async function validarCodigo(
 
   if (invitado.estado === EstadoInvitado.ASISTIO || invitado.registradoEn !== null) {
     return {
-      estado: "completo",
+      estado: "reingreso",
       codigo,
-      mensaje: `Ya entro a las ${
+      mensaje: `Primer ingreso a las ${
         invitado.registradoEn?.toLocaleTimeString("es-CO", {
           hour: "numeric",
           minute: "2-digit",
         }) ?? "?"
-      }.`,
+      }. Reingreso permitido.`,
       reserva: reservaPayload,
       invitado: invitadoPayload,
     };
@@ -295,18 +298,7 @@ export async function confirmarIngreso(
         ? `Grupo completo. ${totalAsistieron}/${updated.invitados.length}.`
         : `Persona adentro. ${totalAsistieron}/${updated.invitados.length} en el grupo.`,
       reserva: serializeReserva(updated),
-      invitado: {
-        id: invitadoUpdated.id,
-        numero: invitadoUpdated.numero,
-        nombreCompleto: invitadoUpdated.nombreCompleto,
-        telefono: invitadoUpdated.telefono,
-        estado: invitadoUpdated.estado,
-        codigo: invitadoUpdated.codigo,
-        mesaId: invitadoUpdated.mesaId,
-        mesaNumero: invitadoUpdated.mesa?.numero ?? null,
-        silla: invitadoUpdated.silla,
-        registradoEn: invitadoUpdated.registradoEn,
-      },
+      invitado: serializeInvitado(invitadoUpdated),
     };
   });
 
@@ -321,8 +313,236 @@ export async function confirmarIngreso(
       const msg = err.message;
       if (msg === "INVITADO_NO_EXISTE") return { success: false, error: "Invitado no encontrado." };
       if (msg === "INVITADO_YA_ENTRO") return { success: false, error: "Este invitado ya ingresó." };
-      if (msg === "INVITADO_NO_PAGADO") return { success: false, error: "El invitado no ha pagado todavía." };
+      if (msg === "INVITADO_NO_PAGADO") return { success: false, error: "El invitado no ha confirmado todavía." };
       if (msg === "RESERVA_CANCELADA") return { success: false, error: "La reserva fue cancelada." };
+    }
+    throw err;
+  }
+}
+
+export async function confirmarReingreso(
+  invitadoId: string
+): Promise<OperacionInvitadoResult> {
+  await requireAdmin();
+  const idResult = idSchema.safeParse(invitadoId);
+  if (!idResult.success) return { success: false, error: "ID de invitado inválido." };
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const invitado = await tx.invitado.findUnique({
+        where: { id: invitadoId },
+        include: {
+          mesa: { select: { numero: true } },
+          reserva: {
+            include: {
+              user: { select: { nombreCompleto: true, telefono: true } },
+              invitados: {
+                orderBy: { numero: "asc" },
+                include: { mesa: { select: { numero: true } } },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invitado) throw new Error("INVITADO_NO_EXISTE");
+      if (invitado.reserva.estado === EstadoReserva.CANCELADO) {
+        throw new Error("RESERVA_CANCELADA");
+      }
+      if (invitado.estado !== EstadoInvitado.ASISTIO || !invitado.registradoEn) {
+        throw new Error("INVITADO_SIN_INGRESO");
+      }
+
+      const ahora = new Date();
+      await tx.invitado.update({
+        where: { id: invitadoId },
+        data: {
+          reingresos: { increment: 1 },
+          ultimoReingresoEn: ahora,
+        },
+      });
+
+      const updated = await tx.reserva.findUniqueOrThrow({
+        where: { id: invitado.reservaId },
+        include: {
+          user: { select: { nombreCompleto: true, telefono: true } },
+          invitados: {
+            orderBy: { numero: "asc" },
+            include: { mesa: { select: { numero: true } } },
+          },
+        },
+      });
+
+      const invitadoUpdated = updated.invitados.find((i) => i.id === invitadoId)!;
+      return {
+        message: `Reingreso registrado. Total: ${invitadoUpdated.reingresos}.`,
+        reserva: serializeReserva(updated),
+        invitado: serializeInvitado(invitadoUpdated),
+      };
+    });
+
+    revalidatePath("/admin/validar");
+    revalidatePath("/admin/reservas");
+    revalidatePath(`/admin/reservas/${result.reserva.id}`);
+    revalidatePath("/mi-reserva");
+    return { success: true, ...result };
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "INVITADO_NO_EXISTE") return { success: false, error: "Invitado no encontrado." };
+      if (err.message === "RESERVA_CANCELADA") return { success: false, error: "La reserva fue cancelada." };
+      if (err.message === "INVITADO_SIN_INGRESO") return { success: false, error: "Primero registra el ingreso inicial." };
+    }
+    throw err;
+  }
+}
+
+export async function marcarAlmuerzoEntregado(
+  invitadoId: string
+): Promise<OperacionInvitadoResult> {
+  await requireAdmin();
+  const idResult = idSchema.safeParse(invitadoId);
+  if (!idResult.success) return { success: false, error: "ID de invitado inválido." };
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const invitado = await tx.invitado.findUnique({
+        where: { id: invitadoId },
+        include: {
+          mesa: { select: { numero: true } },
+          reserva: {
+            include: {
+              user: { select: { nombreCompleto: true, telefono: true } },
+              invitados: {
+                orderBy: { numero: "asc" },
+                include: { mesa: { select: { numero: true } } },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invitado) throw new Error("INVITADO_NO_EXISTE");
+      if (invitado.reserva.estado === EstadoReserva.CANCELADO) {
+        throw new Error("RESERVA_CANCELADA");
+      }
+      if (invitado.estado === EstadoInvitado.PENDIENTE_PAGO) {
+        throw new Error("INVITADO_NO_PAGADO");
+      }
+      if (invitado.almuerzoEntregadoEn) {
+        throw new Error("ALMUERZO_YA_ENTREGADO");
+      }
+
+      await tx.invitado.update({
+        where: { id: invitadoId },
+        data: { almuerzoEntregadoEn: new Date() },
+      });
+
+      const updated = await tx.reserva.findUniqueOrThrow({
+        where: { id: invitado.reservaId },
+        include: {
+          user: { select: { nombreCompleto: true, telefono: true } },
+          invitados: {
+            orderBy: { numero: "asc" },
+            include: { mesa: { select: { numero: true } } },
+          },
+        },
+      });
+
+      const invitadoUpdated = updated.invitados.find((i) => i.id === invitadoId)!;
+      return {
+        message: `Almuerzo entregado a ${invitadoUpdated.nombreCompleto.split(" ")[0]}.`,
+        reserva: serializeReserva(updated),
+        invitado: serializeInvitado(invitadoUpdated),
+      };
+    });
+
+    revalidatePath("/admin/validar");
+    revalidatePath("/admin/reservas");
+    revalidatePath(`/admin/reservas/${result.reserva.id}`);
+    revalidatePath("/mi-reserva");
+    return { success: true, ...result };
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "INVITADO_NO_EXISTE") return { success: false, error: "Invitado no encontrado." };
+      if (err.message === "RESERVA_CANCELADA") return { success: false, error: "La reserva fue cancelada." };
+      if (err.message === "INVITADO_NO_PAGADO") return { success: false, error: "El invitado no ha confirmado aporte." };
+      if (err.message === "ALMUERZO_YA_ENTREGADO") return { success: false, error: "El almuerzo ya fue entregado." };
+    }
+    throw err;
+  }
+}
+
+export async function marcarRefrigerioEntregado(
+  invitadoId: string
+): Promise<OperacionInvitadoResult> {
+  await requireAdmin();
+  const idResult = idSchema.safeParse(invitadoId);
+  if (!idResult.success) return { success: false, error: "ID de invitado inválido." };
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const invitado = await tx.invitado.findUnique({
+        where: { id: invitadoId },
+        include: {
+          mesa: { select: { numero: true } },
+          reserva: {
+            include: {
+              user: { select: { nombreCompleto: true, telefono: true } },
+              invitados: {
+                orderBy: { numero: "asc" },
+                include: { mesa: { select: { numero: true } } },
+              },
+            },
+          },
+        },
+      });
+
+      if (!invitado) throw new Error("INVITADO_NO_EXISTE");
+      if (invitado.reserva.estado === EstadoReserva.CANCELADO) {
+        throw new Error("RESERVA_CANCELADA");
+      }
+      if (invitado.estado === EstadoInvitado.PENDIENTE_PAGO) {
+        throw new Error("INVITADO_NO_PAGADO");
+      }
+      if (invitado.refrigerioEntregadoEn) {
+        throw new Error("REFRIGERIO_YA_ENTREGADO");
+      }
+
+      await tx.invitado.update({
+        where: { id: invitadoId },
+        data: { refrigerioEntregadoEn: new Date() },
+      });
+
+      const updated = await tx.reserva.findUniqueOrThrow({
+        where: { id: invitado.reservaId },
+        include: {
+          user: { select: { nombreCompleto: true, telefono: true } },
+          invitados: {
+            orderBy: { numero: "asc" },
+            include: { mesa: { select: { numero: true } } },
+          },
+        },
+      });
+
+      const invitadoUpdated = updated.invitados.find((i) => i.id === invitadoId)!;
+      return {
+        message: `Refrigerio entregado a ${invitadoUpdated.nombreCompleto.split(" ")[0]}.`,
+        reserva: serializeReserva(updated),
+        invitado: serializeInvitado(invitadoUpdated),
+      };
+    });
+
+    revalidatePath("/admin/validar");
+    revalidatePath("/admin/reservas");
+    revalidatePath(`/admin/reservas/${result.reserva.id}`);
+    revalidatePath("/mi-reserva");
+    return { success: true, ...result };
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "INVITADO_NO_EXISTE") return { success: false, error: "Invitado no encontrado." };
+      if (err.message === "RESERVA_CANCELADA") return { success: false, error: "La reserva fue cancelada." };
+      if (err.message === "INVITADO_NO_PAGADO") return { success: false, error: "El invitado no ha confirmado aporte." };
+      if (err.message === "REFRIGERIO_YA_ENTREGADO") return { success: false, error: "El refrigerio ya fue entregado." };
     }
     throw err;
   }
@@ -456,7 +676,7 @@ export async function marcarInvitadosPagados(
     if (err instanceof Error) {
       const msg = err.message;
       if (msg === "ALGUN_INVITADO_NO_EXISTE") return { error: "Uno o más invitados no existen. Refrescá la página." };
-      if (msg === "INVITADO_YA_PAGADO") return { error: "Uno de los invitados ya fue marcado como pagado." };
+      if (msg === "INVITADO_YA_PAGADO") return { error: "Uno de los invitados ya fue marcado como confirmado." };
       if (msg === "RESERVA_CANCELADA") return { error: "La reserva fue cancelada." };
       if (msg === "INVITADOS_DE_DIFERENTES_RESERVAS") return { error: "Los invitados pertenecen a distintas reservas." };
       if (msg === "NO_SE_PUDO_GENERAR_CODIGO") return { error: "No se pudo generar un código único. Intentá de nuevo." };
@@ -474,9 +694,9 @@ export async function marcarInvitadosPagados(
   return {
     error: null,
     success: true,
-    message: `Pago registrado. ${invitadoIds.length} invitado${
+    message: `Aporte registrado. ${invitadoIds.length} invitado${
       invitadoIds.length === 1 ? "" : "s"
-    } pagado${invitadoIds.length === 1 ? "" : "s"}.`,
+    } confirmado${invitadoIds.length === 1 ? "" : "s"}.`,
     codigo: resultado.codigosAsignados[0],
   };
 }
@@ -720,12 +940,12 @@ export async function cancelarReserva(
 
   try {
     await prisma.$transaction(async (tx) => {
-      const pagados = await tx.invitado.count({
+      const confirmados = await tx.invitado.count({
         where: { reservaId, estado: { in: [EstadoInvitado.PAGADO, EstadoInvitado.ASISTIO] } },
       });
-      if (pagados > 0) {
+      if (confirmados > 0) {
         throw new Error(
-          `Hay ${pagados} invitado${pagados === 1 ? "" : "s"} que ya pagó${pagados === 1 ? "" : "aron"}. Antes de cancelar, revértelos o coordiná el reembolso.`
+          `Hay ${confirmados} invitado${confirmados === 1 ? "" : "s"} que ya pagó${confirmados === 1 ? "" : "aron"}. Antes de cancelar, revértelos o coordiná el reembolso.`
         );
       }
 
@@ -762,10 +982,10 @@ export async function reactivarReserva(
   if (!idResult.success) return { error: "ID de reserva inválido." };
 
   // Consultar estado real de los invitados para asignar el estado correcto
-  const pagadosAhora = await prisma.invitado.count({
+  const confirmadosAhora = await prisma.invitado.count({
     where: { reservaId, estado: { in: [EstadoInvitado.PAGADO, EstadoInvitado.ASISTIO] } },
   });
-  const nuevoEstado = pagadosAhora > 0 ? EstadoReserva.PARCIAL : EstadoReserva.PAGO_PENDIENTE;
+  const nuevoEstado = confirmadosAhora > 0 ? EstadoReserva.PARCIAL : EstadoReserva.PAGO_PENDIENTE;
 
   await prisma.reserva.update({
     where: { id: reservaId },
@@ -975,4 +1195,329 @@ export async function actualizarConfiguracion(
     success: true,
     message: "Configuración actualizada.",
   };
+}
+
+// ============================================================
+// CRUD USUARIOS (admin)
+// ============================================================
+
+const adminUsuarioSchema = z.object({
+  nombreCompleto: z.string().min(3, "Nombre muy corto").max(80),
+  email: z.string().email("Email inválido").toLowerCase(),
+  telefono: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .pipe(z.string().regex(/^\d{10}$/, "Celular colombiano de 10 dígitos"))
+    .transform((digits) => `+57${digits}`),
+  rol: z.nativeEnum(Rol).default(Rol.USUARIO),
+});
+
+const crearUsuarioSchema = adminUsuarioSchema.extend({
+  password: z.string().min(8, "Mínimo 8 caracteres").max(72),
+});
+
+export async function crearUsuarioAdmin(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  const parsed = crearUsuarioSchema.safeParse({
+    nombreCompleto: formData.get("nombreCompleto"),
+    email: formData.get("email"),
+    telefono: formData.get("telefono"),
+    rol: formData.get("rol") || Rol.USUARIO,
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  try {
+    await prisma.user.create({
+      data: {
+        nombreCompleto: parsed.data.nombreCompleto,
+        email: parsed.data.email,
+        telefono: parsed.data.telefono,
+        rol: parsed.data.rol,
+        passwordHash: await hashPassword(parsed.data.password),
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "Ya existe un usuario con ese email." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/usuarios");
+  return { error: null, success: true, message: "Usuario creado." };
+}
+
+export async function editarUsuarioAdmin(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  const session = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+  const idResult = idSchema.safeParse(userId);
+  if (!idResult.success) return { error: "ID de usuario inválido." };
+
+  const parsed = adminUsuarioSchema.safeParse({
+    nombreCompleto: formData.get("nombreCompleto"),
+    email: formData.get("email"),
+    telefono: formData.get("telefono"),
+    rol: formData.get("rol") || Rol.USUARIO,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  if (userId === session.user.id && parsed.data.rol !== Rol.ADMIN) {
+    return { error: "No puedes quitarte tu propio rol admin." };
+  }
+
+  try {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        nombreCompleto: parsed.data.nombreCompleto,
+        email: parsed.data.email,
+        telefono: parsed.data.telefono,
+        rol: parsed.data.rol,
+      },
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "Ya existe un usuario con ese email." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/reservas");
+  revalidatePath("/mi-reserva");
+  return { error: null, success: true, message: "Usuario actualizado." };
+}
+
+export async function eliminarUsuarioAdmin(userId: string): Promise<AdminActionResult> {
+  const session = await requireAdmin();
+  const idResult = idSchema.safeParse(userId);
+  if (!idResult.success) return { error: "ID de usuario inválido." };
+  if (userId === session.user.id) {
+    return { error: "No puedes eliminar tu propio usuario." };
+  }
+
+  const dependenciasAdmin = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      pagosRegistrados: { select: { id: true }, take: 1 },
+      invitadosPagados: { select: { id: true }, take: 1 },
+      invitadosAsignados: { select: { id: true }, take: 1 },
+      configuracionesEditadas: { select: { id: true }, take: 1 },
+    },
+  });
+  if (!dependenciasAdmin) return { error: "Usuario no encontrado." };
+  if (
+    dependenciasAdmin.pagosRegistrados.length ||
+    dependenciasAdmin.invitadosPagados.length ||
+    dependenciasAdmin.invitadosAsignados.length ||
+    dependenciasAdmin.configuracionesEditadas.length
+  ) {
+    return {
+      error:
+        "No se puede eliminar: tiene acciones administrativas registradas. Cambia sus datos o rol en lugar de borrarlo.",
+    };
+  }
+
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/reservas");
+  revalidatePath("/admin");
+  return { error: null, success: true, message: "Usuario eliminado." };
+}
+
+// ============================================================
+// CRUD RESERVAS (admin)
+// ============================================================
+
+const reservaAdminSchema = z.object({
+  nombreCompleto: z.string().min(3, "Nombre muy corto").max(80),
+  email: z.string().email("Email inválido").toLowerCase(),
+  telefono: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ""))
+    .pipe(z.string().regex(/^\d{10}$/, "Celular colombiano de 10 dígitos"))
+    .transform((digits) => `+57${digits}`),
+});
+
+export async function crearReservaAdmin(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  const parsed = reservaAdminSchema.safeParse({
+    nombreCompleto: formData.get("nombreCompleto"),
+    email: formData.get("email"),
+    telefono: formData.get("telefono"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const config = await getConfiguracion();
+  const tempPassword = generateTempPassword();
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const user = await tx.user.upsert({
+        where: { email: parsed.data.email },
+        update: {
+          nombreCompleto: parsed.data.nombreCompleto,
+          telefono: parsed.data.telefono,
+        },
+        create: {
+          nombreCompleto: parsed.data.nombreCompleto,
+          email: parsed.data.email,
+          telefono: parsed.data.telefono,
+          passwordHash: await hashPassword(tempPassword),
+          debeCambiarContrasena: true,
+          rol: Rol.USUARIO,
+        },
+      });
+
+      const existing = await tx.reserva.findUnique({ where: { userId: user.id } });
+      if (existing) throw new Error("USUARIO_YA_TIENE_RESERVA");
+
+      await tx.reserva.create({
+        data: {
+          userId: user.id,
+          valorTotal: config.precioPorPersona,
+          estado: EstadoReserva.PAGO_PENDIENTE,
+          invitados: {
+            create: {
+              numero: 1,
+              nombreCompleto: parsed.data.nombreCompleto,
+              telefono: parsed.data.telefono,
+            },
+          },
+        },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "USUARIO_YA_TIENE_RESERVA") {
+      return { error: "Ese usuario ya tiene una reserva." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/reservas");
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin");
+  return {
+    error: null,
+    success: true,
+    message: `Reserva creada. Password temporal si el usuario era nuevo: ${tempPassword}`,
+  };
+}
+
+export async function editarReservaAdmin(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  const reservaId = String(formData.get("reservaId") ?? "");
+  const idResult = idSchema.safeParse(reservaId);
+  if (!idResult.success) return { error: "ID de reserva inválido." };
+
+  const parsed = reservaAdminSchema.safeParse({
+    nombreCompleto: formData.get("nombreCompleto"),
+    email: formData.get("email"),
+    telefono: formData.get("telefono"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+
+  const config = await getConfiguracion();
+  try {
+    await prisma.$transaction(async (tx) => {
+      const reserva = await tx.reserva.findUnique({
+        where: { id: reservaId },
+        include: { user: true, invitados: { orderBy: { numero: "asc" } } },
+      });
+      if (!reserva) throw new Error("RESERVA_NO_EXISTE");
+
+      await tx.user.update({
+        where: { id: reserva.userId },
+        data: {
+          nombreCompleto: parsed.data.nombreCompleto,
+          email: parsed.data.email,
+          telefono: parsed.data.telefono,
+        },
+      });
+
+      const entrada = reserva.invitados.find((i) => i.numero === 1) ?? reserva.invitados[0];
+      if (entrada) {
+        await tx.invitado.update({
+          where: { id: entrada.id },
+          data: {
+            numero: 1,
+            nombreCompleto: parsed.data.nombreCompleto,
+            telefono: parsed.data.telefono,
+          },
+        });
+      } else {
+        await tx.invitado.create({
+          data: {
+            reservaId,
+            numero: 1,
+            nombreCompleto: parsed.data.nombreCompleto,
+            telefono: parsed.data.telefono,
+          },
+        });
+      }
+
+      const sobrantes = reserva.invitados.filter((i) => i.id !== entrada?.id);
+      for (const inv of sobrantes) {
+        if (inv.estado !== EstadoInvitado.PENDIENTE_PAGO) {
+          throw new Error("NO_SE_PUEDE_REMOVER_CONFIRMADOS");
+        }
+        await tx.invitado.delete({ where: { id: inv.id } });
+      }
+
+      await tx.reserva.update({
+        where: { id: reservaId },
+        data: { valorTotal: config.precioPorPersona },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return { error: "El email ya pertenece a otro usuario." };
+    }
+    if (err instanceof Error) {
+      if (err.message === "RESERVA_NO_EXISTE") return { error: "Reserva no encontrada." };
+      if (err.message === "NO_SE_PUEDE_REMOVER_CONFIRMADOS") {
+        return { error: "No puedes convertir esta reserva a individual porque tiene otras personas ya confirmadas o con ingreso." };
+      }
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/reservas");
+  revalidatePath(`/admin/reservas/${reservaId}`);
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/mi-reserva");
+  return { error: null, success: true, message: "Reserva actualizada." };
+}
+
+export async function eliminarReservaAdmin(reservaId: string): Promise<AdminActionResult> {
+  await requireAdmin();
+  const idResult = idSchema.safeParse(reservaId);
+  if (!idResult.success) return { error: "ID de reserva inválido." };
+
+  await prisma.reserva.delete({ where: { id: reservaId } });
+  revalidatePath("/admin/reservas");
+  revalidatePath("/admin/usuarios");
+  revalidatePath("/admin");
+  revalidatePath("/mi-reserva");
+  return { error: null, success: true, message: "Reserva eliminada." };
 }

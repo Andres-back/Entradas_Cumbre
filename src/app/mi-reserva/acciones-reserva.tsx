@@ -66,7 +66,7 @@ export function AccionesReserva() {
               </p>
               <p className="text-bone text-sm mt-1">
                 Esto libera tu cupo. Si ya coordinaste el pago por WhatsApp,
-                avísale primero a Fredy.
+                avísale primero a el equipo organizador.
               </p>
             </div>
           </div>
@@ -130,3 +130,5 @@ function CancelSubmitButton() {
     </Button>
   );
 }
+
+

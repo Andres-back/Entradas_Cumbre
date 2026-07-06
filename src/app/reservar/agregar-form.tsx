@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { useForm, useFieldArray, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,8 +11,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Button } from "@/components/ui/button";
 import { RpmLoader } from "@/components/brand/RpmLoader";
 import { MAX_POR_RESERVA } from "@/lib/constants";
-import { cn } from "@/lib/utils";
-import { agregarInvitadosReserva, type AgregarInvitadosState } from "./actions";
+import { agregarInvitadosReserva } from "./actions";
 import { Minus, Plus, User, Users } from "lucide-react";
 
 const invitadoFieldSchema = z.object({
@@ -26,8 +25,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-const initial: AgregarInvitadosState = { error: null };
 
 export function AgregarInvitadosForm({
   precioPorPersona,
@@ -77,7 +74,7 @@ export function AgregarInvitadosForm({
       });
       fd.set("guestCount", String(data.invitados.length));
 
-      const result = await agregarInvitadosReserva(initial, fd);
+      const result = await agregarInvitadosReserva();
       if (result.success) {
         toast.success("¡Personas agregadas!");
         router.push("/mi-reserva");
@@ -214,3 +211,5 @@ export function AgregarInvitadosForm({
     </form>
   );
 }
+
+

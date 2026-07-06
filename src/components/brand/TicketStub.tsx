@@ -16,7 +16,7 @@ interface TicketStubProps {
 }
 
 const estadoLabel: Record<TicketEstado, string> = {
-  pendiente: "Pendiente de pago",
+  pendiente: "Aporte pendiente",
   confirmado: "Listo para entrar",
   asistio: "Asististe",
   cancelado: "Cancelado",
@@ -44,8 +44,8 @@ const estadoDot: Record<TicketEstado, string> = {
 export function TicketStub({
   nombre,
   codigo,
-  fecha = "Sábado 20 de junio",
-  hora = "6:00 pm",
+  fecha = "10 y 11 de julio de 2026",
+  hora = "",
   estado = "pendiente",
   className,
   typewriter = true,
@@ -71,7 +71,7 @@ export function TicketStub({
         <p className="font-subhead text-xs uppercase tracking-widest text-ember-bright">
           Reserva
         </p>
-        <h2 className="font-display text-3xl text-cream mt-1">BAJO EL CAPÓ</h2>
+        <h2 className="font-display text-3xl text-cream mt-1">CUMBRE IMPACTO</h2>
         <p className="text-bone text-sm mt-1">
           {fecha} &middot; {hora}
         </p>
@@ -82,7 +82,7 @@ export function TicketStub({
         </div>
 
         <div className="mt-6 pt-6 border-t border-dashed border-taller-iron">
-          <p className="text-ash text-xs uppercase tracking-widest">Tu llave</p>
+          <p className="text-ash text-xs uppercase tracking-widest">Tu código</p>
           {codigo && typewriter ? (
             <p className="font-mono text-2xl md:text-3xl text-ember-bright tracking-widest mt-1">
               <TypewriterCode text={codigo} />
@@ -108,3 +108,6 @@ export function TicketStub({
     </article>
   );
 }
+
+
+

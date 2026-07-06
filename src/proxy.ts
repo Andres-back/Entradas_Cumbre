@@ -17,6 +17,8 @@ export default proxy;
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|flyer-oficial.jpeg|.*\\.svg|.*\\.png|.*\\.webp).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg|.*\\.png|.*\\.webp).*)",
   ],
 };
+
+

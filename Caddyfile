@@ -1,22 +1,13 @@
-# Caddy reverse proxy para Bajo el Capo
-# Auto-HTTPS via Let's Encrypt
-# Reemplaza TU_DOMINIO por el dominio real (ej: bajoelcapo.mi-vps.com)
+﻿# Caddy reverse proxy para Cumbre Impacto Putumayo 2026
+# Define DOMAIN en .env.production con el dominio real del nuevo evento.
 
-{$DOMAIN:localhost} {
-    encode gzip zstd
-    header {
-        X-Content-Type-Options nosniff
-        X-Frame-Options DENY
-        Referrer-Policy strict-origin-when-cross-origin
-        -Server
-    }
+{$DOMAIN} {
+  encode zstd gzip
+  reverse_proxy app:3000
 
-    # Next.js app
-    reverse_proxy app:3000
-
-    # Logs (opcional: comentar para deshabilitar)
-    log {
-        output stdout
-        format json
-    }
+  header {
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+  }
 }

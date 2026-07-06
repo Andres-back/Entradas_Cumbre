@@ -47,7 +47,7 @@ export function MarcarPagadoForm({
   if (invitadosPendientes.length === 0) {
     return (
       <p className="text-ash text-lg">
-        No quedan invitados pendientes de pago.
+        No quedan asistentes pendientes de aporte.
       </p>
     );
   }
@@ -69,7 +69,7 @@ export function MarcarPagadoForm({
       {/* Lista de invitados pendientes con checkboxes */}
       <div className="space-y-2">
         <p className="font-subhead text-base uppercase tracking-widest text-ash flex items-center gap-2">
-          <Users className="h-4 w-4" /> Invitados pendientes ({invitadosPendientes.length})
+          <Users className="h-4 w-4" /> Asistentes pendientes ({invitadosPendientes.length})
         </p>
           <ul className="space-y-1.5">
             {invitadosPendientes.map((inv) => {
@@ -172,9 +172,10 @@ function SubmitButton({ total }: { total: number }) {
       ) : (
         <>
           <CheckCircle2 className="h-6 w-6" />
-          Confirmar pago · {total} invitado{total === 1 ? "" : "s"}
+          Confirmar aporte · {total} asistente{total === 1 ? "" : "s"}
         </>
       )}
     </Button>
   );
 }
+

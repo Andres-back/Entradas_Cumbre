@@ -1,4 +1,4 @@
-﻿-- Migracion 20260606010000_ingresos_y_3_personas
+-- Migracion 20260606010000_ingresos_y_3_personas
 -- Cambios:
 -- 1. Reserva: agregar campos para 3ra persona + tracking de ingresos
 -- 2. Nueva tabla ingresos con FK a reservas y users

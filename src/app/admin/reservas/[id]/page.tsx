@@ -13,6 +13,9 @@ import {
   MessageCircle,
   Clock,
   Armchair,
+  RotateCcw,
+  Utensils,
+  Coffee,
 } from "lucide-react";
 import { buildWhatsappSimpleUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -35,8 +38,8 @@ const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
 };
 
 const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Pago pendiente",
-  PARCIAL: "Pago parcial",
+  PAGO_PENDIENTE: "Aporte pendiente",
+  PARCIAL: "Aporte parcial",
   ASISTIO: "Asistió",
   CANCELADO: "Cancelado",
 };
@@ -95,10 +98,10 @@ export default async function AdminReservaDetalle({
 
   if (!reserva) notFound();
 
-  const estadoActivo = reserva.estado !== "CANCELADO" && reserva.estado !== "ASISTIO";
+  const estadoActivo = reserva.estado !== "CANCELADO";
   const waUrl = buildWhatsappSimpleUrl(
     reserva.user.telefono,
-    `Hola ${reserva.user.nombreCompleto.split(" ")[0]}, te escribo de Bajo el Capo.`
+    `Hola ${reserva.user.nombreCompleto.split(" ")[0]}, te escribo de Cumbre Impacto.`
   );
 
   const invitadosPendientes = reserva.invitados.filter(
@@ -110,13 +113,24 @@ export default async function AdminReservaDetalle({
   const invitadosAsistieron = reserva.invitados.filter(
     (i) => i.estado === EstadoInvitado.ASISTIO
   );
+  const almuerzosEntregados = reserva.invitados.filter(
+    (i) => i.almuerzoEntregadoEn
+  ).length;
+  const refrigeriosEntregados = reserva.invitados.filter(
+    (i) => i.refrigerioEntregadoEn
+  ).length;
+  const totalReingresos = reserva.invitados.reduce(
+    (acc, i) => acc + i.reingresos,
+    0
+  );
   const invitadosConMesa = reserva.invitados.filter(
     (i) => i.mesaId && i.silla
   );
+  const invitadosOperativos = invitadosPagados.length + invitadosAsistieron.length;
 
   const estadoDisplay =
     reserva.estado === EstadoReserva.PARCIAL
-      ? `${invitadosPagados.length + invitadosAsistieron.length}/${reserva.invitados.length} pagados`
+      ? `${invitadosPagados.length + invitadosAsistieron.length}/${reserva.invitados.length} confirmados`
       : estadoLabel[reserva.estado];
 
   return (
@@ -135,7 +149,7 @@ export default async function AdminReservaDetalle({
           </p>
           <h1 className="font-display text-xl md:text-3xl text-cream mt-1">
             {reserva.invitados.length}{" "}
-            {reserva.invitados.length === 1 ? "invitado" : "invitados"}
+            {reserva.invitados.length === 1 ? "asistente" : "asistentes"}
           </h1>
         </div>
         <Badge variant={estadoVariant[reserva.estado]} className="text-base md:text-lg">
@@ -194,7 +208,7 @@ export default async function AdminReservaDetalle({
             <div className="flex items-baseline justify-between">
               <p className="text-bone text-base">
                 {reserva.invitados.length}{" "}
-                {reserva.invitados.length === 1 ? "invitado" : "invitados"}
+                {reserva.invitados.length === 1 ? "asistente" : "asistentes"}
               </p>
               <p className="font-display text-2xl md:text-3xl text-ember-bright">
                 {invitadosAsistieron.length}
@@ -214,6 +228,18 @@ export default async function AdminReservaDetalle({
               <span>Con mesa</span>
               <span className="text-bone">{invitadosConMesa.length}</span>
             </div>
+            <div className="flex items-baseline justify-between text-base text-ash">
+              <span>Almuerzos</span>
+              <span className="text-bone">{almuerzosEntregados}</span>
+            </div>
+            <div className="flex items-baseline justify-between text-base text-ash">
+              <span>Refrigerios</span>
+              <span className="text-bone">{refrigeriosEntregados}</span>
+            </div>
+            <div className="flex items-baseline justify-between text-base text-ash">
+              <span>Reingresos</span>
+              <span className="text-bone">{totalReingresos}</span>
+            </div>
             <p className="font-display text-2xl md:text-3xl text-ember-bright mt-2">
               {formatCOP(reserva.valorTotal)}
             </p>
@@ -227,7 +253,7 @@ export default async function AdminReservaDetalle({
       <Card className="mb-4 md:mb-6">
         <CardHeader>
           <CardTitle className="text-base md:text-lg flex items-center gap-2">
-            <Users className="h-5 w-5 text-ember-bright" /> Invitados (
+            <Users className="h-5 w-5 text-ember-bright" /> Asistentes (
             {reserva.invitados.length})
           </CardTitle>
         </CardHeader>
@@ -285,6 +311,24 @@ export default async function AdminReservaDetalle({
                     })}
                   </span>
                 )}
+                {inv.reingresos > 0 && (
+                  <span className="text-ember-bright text-sm shrink-0 hidden sm:flex items-center gap-0.5">
+                    <RotateCcw className="h-4 w-4" />
+                    {inv.reingresos}
+                  </span>
+                )}
+                {inv.almuerzoEntregadoEn && (
+                  <span className="text-signal-green text-sm shrink-0 hidden sm:flex items-center gap-0.5">
+                    <Utensils className="h-4 w-4" />
+                    Almuerzo
+                  </span>
+                )}
+                {inv.refrigerioEntregadoEn && (
+                  <span className="text-signal-green text-sm shrink-0 hidden sm:flex items-center gap-0.5">
+                    <Coffee className="h-4 w-4" />
+                    Refrigerio
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -294,7 +338,7 @@ export default async function AdminReservaDetalle({
       {reserva.pagos.length > 0 && (
         <Card className="mb-4 md:mb-6">
           <CardHeader>
-            <CardTitle className="text-base md:text-lg">Pagos registrados</CardTitle>
+            <CardTitle className="text-base md:text-lg">Aportes registrados</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5 text-base md:text-lg">
             {reserva.pagos.map((p) => (
@@ -315,7 +359,7 @@ export default async function AdminReservaDetalle({
                 </div>
                 {p.invitadosCubiertos.length > 0 && (
                   <p className="text-ash text-sm md:text-base mt-1">
-                    Cubre {p.invitadosCubiertos.length} invitado
+                    Cubre {p.invitadosCubiertos.length} asistente
                     {p.invitadosCubiertos.length === 1 ? "" : "s"}
                   </p>
                 )}
@@ -360,7 +404,7 @@ export default async function AdminReservaDetalle({
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base md:text-lg">
-                    Marcar invitados como pagados
+                    Confirmar aporte de participantes
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -382,8 +426,8 @@ export default async function AdminReservaDetalle({
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <p className="text-bone text-base md:text-lg">
-                    {invitadosPagados.length} invitado
-                    {invitadosPagados.length === 1 ? "" : "s"} pagado
+                    {invitadosPagados.length} asistente
+                    {invitadosPagados.length === 1 ? "" : "s"} confirmado
                     {invitadosPagados.length === 1 ? "" : "s"} y pendiente
                     {invitadosPagados.length === 1 ? "" : "s"} de entrar.
                   </p>
@@ -397,6 +441,23 @@ export default async function AdminReservaDetalle({
                       Asignar mesas
                     </Link>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {invitadosPagados.length === 0 && invitadosOperativos > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base md:text-lg">
+                    Reingreso, almuerzo y refrigerio
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-bone text-base md:text-lg">
+                    La inscripción ya tiene ingreso registrado. Usa el validador para
+                    reingresos, entrega de almuerzo y entrega de refrigerio.
+                  </p>
+                  <IrAlValidadorButton />
                 </CardContent>
               </Card>
             )}
@@ -424,7 +485,7 @@ export default async function AdminReservaDetalle({
               </p>
               <p className="text-ash text-sm md:text-base mt-1">
                 {invitadosAsistieron.length} / {reserva.invitados.length}{" "}
-                invitados registrados.
+                asistentes registrados.
               </p>
             </CardContent>
           </Card>
@@ -451,3 +512,4 @@ export default async function AdminReservaDetalle({
     </main>
   );
 }
+

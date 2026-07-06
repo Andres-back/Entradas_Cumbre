@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { KeyRound, User } from "lucide-react";
 
 export const metadata = {
-  title: "Mi cuenta | Admin | Bajo el Capó",
+  title: "Mi cuenta | Admin | Cumbre Impacto",
 };
 
 export default async function AdminCuentaPage() {
@@ -83,3 +83,5 @@ export default async function AdminCuentaPage() {
     </main>
   );
 }
+
+

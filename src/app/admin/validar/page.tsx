@@ -17,7 +17,7 @@ export default function AdminValidarPage() {
           Validar entrada
         </h1>
         <p className="text-bone text-base md:text-lg mt-1.5 md:mt-2">
-          Escanea o escribe el código del asistente.
+          Escanea entrada, reingreso, almuerzo o refrigerio.
         </p>
       </div>
 
@@ -32,12 +32,14 @@ export default function AdminValidarPage() {
         </CardHeader>
         <CardContent>
           <p className="text-bone text-base">
-            El código se ve mejor escrito en mayúsculas. Funciona con o sin
-            guion: <span className="font-mono text-ember-bright">BC-A7K2P9M3</span>{" "}
-            o <span className="font-mono text-ember-bright">BCA7K2P9M3</span>.
+            El código funciona con o sin guion:{" "}
+            <span className="font-mono text-ember-bright">CI-A7K2P9M3</span>{" "}
+            o <span className="font-mono text-ember-bright">CIA7K2P9M3</span>.
           </p>
         </CardContent>
       </Card>
     </main>
   );
 }
+
+

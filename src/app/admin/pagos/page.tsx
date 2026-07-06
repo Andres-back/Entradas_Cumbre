@@ -6,7 +6,7 @@ import { Wallet, CheckCircle2, AlertCircle } from "lucide-react";
 import { EstadoReserva } from "@prisma/client";
 
 export const metadata = {
-  title: "Pagos | Admin",
+  title: "Aportes | Admin",
 };
 
 const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
@@ -17,8 +17,8 @@ const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
 };
 
 const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Pago pendiente",
-  PARCIAL: "Pago parcial",
+  PAGO_PENDIENTE: "Aporte pendiente",
+  PARCIAL: "Aporte parcial",
   ASISTIO: "Asistió",
   CANCELADO: "Cancelado",
 };
@@ -34,7 +34,7 @@ function formatDateTime(d: Date) {
   }).format(d);
 }
 
-export default async function AdminPagosPage() {
+export default async function AdminAportesPage() {
   const [pagos, pendientes, reservaPendientes] = await Promise.all([
     prisma.pago.findMany({
       where: { revertido: false },
@@ -66,9 +66,9 @@ export default async function AdminPagosPage() {
           <p className="text-ash text-base uppercase tracking-widest font-subhead">
             Conciliación
           </p>
-          <h1 className="font-display text-3xl text-cream mt-1">Pagos</h1>
+          <h1 className="font-display text-3xl text-cream mt-1">Aportes</h1>
           <p className="text-bone text-lg mt-1">
-            Vista consolidada de pagos confirmados vs reservas pendientes.
+            Vista consolidada de aportes confirmados vs reservas pendientes.
           </p>
         </div>
       </div>
@@ -96,7 +96,7 @@ export default async function AdminPagosPage() {
               <CheckCircle2 className="h-9 w-9 text-signal-green" />
               <div>
                 <p className="text-ash text-base uppercase tracking-widest font-subhead">
-                  Pagos registrados
+                  Aportes registrados
                 </p>
                 <p className="font-display text-2xl text-cream">
                   {pendientes._count}
@@ -122,13 +122,13 @@ export default async function AdminPagosPage() {
         </Card>
       </div>
 
-      {/* Reservas pendientes de pago */}
+      {/* Reservas pendientes de aporte */}
       {reservaPendientes.length > 0 && (
         <Card className="mb-8 border-ember-rust/40">
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-ember-rust" />
-              Esperando pago
+              Esperando aporte
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -144,7 +144,7 @@ export default async function AdminPagosPage() {
                       {formatCOP(r.valorTotal)}
                     </p>
                   </div>
-                  <Badge variant="pending">Pago pendiente</Badge>
+                  <Badge variant="pending">Aporte pendiente</Badge>
                   <Link
                     href={`/admin/reservas/${r.id}`}
                     className="text-ember-bright text-base uppercase tracking-wider font-subhead hover:underline"
@@ -158,15 +158,15 @@ export default async function AdminPagosPage() {
         </Card>
       )}
 
-      {/* Historial de pagos */}
+      {/* Historial de aportes */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">Historial de pagos</CardTitle>
+          <CardTitle className="text-xl">Historial de aportes</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {pagos.length === 0 ? (
             <p className="text-ash text-lg py-8 text-center">
-              Aún no hay pagos confirmados.
+              Aún no hay aportes confirmados.
             </p>
           ) : (
             <>
@@ -253,3 +253,5 @@ export default async function AdminPagosPage() {
     </main>
   );
 }
+
+

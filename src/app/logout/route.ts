@@ -10,3 +10,5 @@ export async function GET() {
   await signOut({ redirect: false });
   redirect("/");
 }
+
+

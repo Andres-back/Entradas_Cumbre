@@ -3,11 +3,16 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { ADMIN_EMAIL } from "@/lib/constants";
 import { ResetPwdButton } from "./reset-button";
+import {
+  CrearUsuarioButton,
+  EditarUsuarioButton,
+  EliminarUsuarioButton,
+} from "./user-crud";
 import { Users, Mail, Phone, Calendar, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const metadata = {
-  title: "Usuarios | Admin | Bajo el Capó",
+  title: "Usuarios | Admin | Cumbre Impacto",
 };
 
 function formatDate(d: Date) {
@@ -60,17 +65,20 @@ export default async function AdminUsuariosPage({
 
   return (
     <main className="px-4 py-8 md:px-8">
-      <div className="mb-6 flex items-center gap-3">
-        <Users className="h-7 w-7 text-ember-bright" />
-        <div>
-          <h1 className="font-display text-2xl md:text-3xl text-cream">
-            Usuarios
-          </h1>
-          <p className="text-ash text-lg">
-            {usuarios.length} {usuarios.length === 1 ? "registrado" : "registrados"}
-            {query && ` (buscando "${query}")`}
-          </p>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <Users className="h-7 w-7 text-ember-bright" />
+          <div>
+            <h1 className="font-display text-2xl md:text-3xl text-cream">
+              Usuarios
+            </h1>
+            <p className="text-ash text-lg">
+              {usuarios.length} {usuarios.length === 1 ? "registrado" : "registrados"}
+              {query && ` (buscando "${query}")`}
+            </p>
+          </div>
         </div>
+        <CrearUsuarioButton />
       </div>
 
       {/* Buscador */}
@@ -171,13 +179,30 @@ export default async function AdminUsuariosPage({
                       {formatDate(u.creadoEn)}
                     </td>
                     <td className="px-3 py-2 text-right">
-                      {u.id !== session.user.id && (
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        <EditarUsuarioButton
+                          user={{
+                            id: u.id,
+                            nombreCompleto: u.nombreCompleto,
+                            email: u.email,
+                            telefono: u.telefono,
+                            rol: u.rol,
+                          }}
+                        />
+                        {u.id !== session.user.id && (
+                          <>
                         <ResetPwdButton
                           userId={u.id}
                           userName={u.nombreCompleto}
                           userPhone={u.telefono}
                         />
+                            <EliminarUsuarioButton
+                              userId={u.id}
+                              userName={u.nombreCompleto}
+                            />
+                          </>
                       )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -230,15 +255,30 @@ export default async function AdminUsuariosPage({
                     </p>
                   </div>
                 </div>
-                {u.id !== session.user.id && (
-                  <div className="mt-3 pt-3 border-t border-taller-iron">
-                    <ResetPwdButton
-                      userId={u.id}
-                      userName={u.nombreCompleto}
-                      userPhone={u.telefono}
-                    />
-                  </div>
-                )}
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-taller-iron pt-3">
+                  <EditarUsuarioButton
+                    user={{
+                      id: u.id,
+                      nombreCompleto: u.nombreCompleto,
+                      email: u.email,
+                      telefono: u.telefono,
+                      rol: u.rol,
+                    }}
+                  />
+                  {u.id !== session.user.id && (
+                    <>
+                      <ResetPwdButton
+                        userId={u.id}
+                        userName={u.nombreCompleto}
+                        userPhone={u.telefono}
+                      />
+                      <EliminarUsuarioButton
+                        userId={u.id}
+                        userName={u.nombreCompleto}
+                      />
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

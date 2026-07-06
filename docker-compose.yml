@@ -1,65 +1,53 @@
 # ============================================================
-# Bajo el Capó — Produccion
+# Cumbre Impacto Putumayo 2026 - Producción
 #
 # Primer despliegue:
-#   1. Copia .env.production.example a .env.production y editalo
+#   1. Copia .env.production.example a .env.production y edítalo
 #   2. docker compose --env-file .env.production up -d --build
-#
-# Requisitos en el VPS: Docker 24+ con compose plugin
 # ============================================================
 
 services:
-  # ---- PostgreSQL 16 ----
   db:
     image: postgres:16-alpine
-    container_name: bajoelcapo-db
+    container_name: cumbre-impacto-db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: bajoelcapo
+      POSTGRES_USER: cumbre_impacto
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: bajoelcapo
+      POSTGRES_DB: cumbre_impacto
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - cumbre_impacto_pgdata:/var/lib/postgresql/data
     networks:
-      - internal
+      - cumbre-impacto-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bajoelcapo -d bajoelcapo"]
+      test: ["CMD-SHELL", "pg_isready -U cumbre_impacto -d cumbre_impacto"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
 
-  # ---- Next.js App ----
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bajoelcapo-app
+    container_name: cumbre-impacto-app
     restart: unless-stopped
     env_file:
-      - .env.production
+      - path: .env.production
+        required: false
     environment:
       DB_HOST: db
       DB_PORT: "5432"
-      DB_USER: bajoelcapo
+      DB_USER: cumbre_impacto
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - internal
-    deploy:
-      resources:
-        limits:
-          memory: 512M
+      - cumbre-impacto-network
 
-  # ---- Caddy Reverse Proxy (auto HTTPS via Let's Encrypt) ----
   caddy:
     image: caddy:2-alpine
-    container_name: bajoelcapo-caddy
+    container_name: cumbre-impacto-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -68,22 +56,19 @@ services:
       DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - cumbre_impacto_caddy_data:/data
+      - cumbre_impacto_caddy_config:/config
     networks:
-      - internal
+      - cumbre-impacto-network
     depends_on:
       - app
-    deploy:
-      resources:
-        limits:
-          memory: 64M
 
 volumes:
-  pgdata:
-  caddy_data:
-  caddy_config:
+  cumbre_impacto_pgdata:
+  cumbre_impacto_caddy_data:
+  cumbre_impacto_caddy_config:
 
 networks:
-  internal:
+  cumbre-impacto-network:
     driver: bridge
+

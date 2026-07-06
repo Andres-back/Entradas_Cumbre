@@ -15,7 +15,7 @@ interface QrScannerProps {
 /**
  * Modal con scanner QR de camara.
  * Usa html5-qrcode para acceder a la camara del celular/PC y decodificar QRs.
- * Pensado para Fredy en la puerta: escanea el QR del PNG del ticket,
+ * Pensado para el equipo organizador en la puerta: escanea el QR del PNG del ticket,
  * autocompleta el input del validador y dispara la validacion.
  */
 export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
@@ -168,3 +168,5 @@ export function QrScanner({ open, onClose, onScan }: QrScannerProps) {
     </div>
   );
 }
+
+

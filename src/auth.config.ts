@@ -1,5 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import { ADMIN_EMAIL } from "@/lib/constants";
 
 /**
  * Configuracion base de Auth.js v5.
@@ -13,9 +12,25 @@ export const authConfig = {
   session: { strategy: "jwt" },
   providers: [],
   callbacks: {
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+        token.debeCambiarContrasena = user.debeCambiarContrasena;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token && session.user) {
+        session.user.id = token.id as string;
+        session.user.role = token.role as "USUARIO" | "ADMIN";
+        session.user.debeCambiarContrasena = token.debeCambiarContrasena as boolean;
+      }
+      return session;
+    },
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const isAdmin = auth?.user?.email === ADMIN_EMAIL; // simple check
+      const isAdmin = auth?.user?.role === "ADMIN";
       const debeCambiarPwd = !!auth?.user?.debeCambiarContrasena;
       const path = nextUrl.pathname;
 
@@ -47,6 +62,12 @@ export const authConfig = {
         return Response.redirect(loginUrl);
       }
 
+      // Los organizadores trabajan desde el panel. Si una cookie callback vieja
+      // los manda a un flujo de asistente, normalizamos el destino.
+      if (isAdmin && (path === "/reservar" || path === "/mi-reserva")) {
+        return Response.redirect(new URL("/admin", nextUrl));
+      }
+
       // /mi-reserva: requiere login
       if (isOnMiReserva && !isLoggedIn) {
         const loginUrl = new URL("/login", nextUrl);
@@ -63,3 +84,5 @@ export const authConfig = {
     },
   },
 } satisfies NextAuthConfig;
+
+

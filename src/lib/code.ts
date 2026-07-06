@@ -4,9 +4,9 @@ import { CODE_ALPHABET, CODE_LENGTH, CODE_PREFIX } from "./constants";
 const generate = customAlphabet(CODE_ALPHABET, CODE_LENGTH);
 
 /**
- * Genera un codigo de entrada tipo `BC-A7K2P9M3`.
+ * Genera un codigo de entrada tipo `CI-A7K2P9M3`.
  * Longitud: 8 caracteres del alfabeto sin ambiguos (sin 0/O, 1/I/L).
- * Prefijo: BC (Bajo el Capo).
+ * Prefijo: CI (Cumbre Impacto).
  */
 export function generateEntradaCode(): string {
   return `${CODE_PREFIX}-${generate()}`;
@@ -33,3 +33,5 @@ export function generateTempPassword(): string {
 export function generateOpaqueToken(): string {
   return nanoid(32);
 }
+
+

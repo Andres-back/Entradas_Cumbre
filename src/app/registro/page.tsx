@@ -3,7 +3,7 @@ import { RegistroForm } from "./registro-form";
 import { Wrench } from "lucide-react";
 
 export const metadata = {
-  title: "Registro | Bajo el Capó",
+  title: "Registro | Cumbre Impacto",
 };
 
 type Props = {
@@ -19,10 +19,10 @@ export default async function RegistroPage({ searchParams }: Props) {
         <div className="flex flex-col items-center gap-3 mb-8">
           <Wrench className="h-10 w-10 text-ember-rust" strokeWidth={2.5} />
           <h1 className="font-display text-3xl text-cream text-center">
-            Saca tu llave
+            Realiza tu inscripción
           </h1>
           <p className="text-ash text-center">
-            Crea tu cuenta para reservar tu lugar.
+            Crea tu cuenta para realizar tu inscripción.
           </p>
         </div>
         <RegistroForm next={next} />
@@ -39,3 +39,6 @@ export default async function RegistroPage({ searchParams }: Props) {
     </main>
   );
 }
+
+
+

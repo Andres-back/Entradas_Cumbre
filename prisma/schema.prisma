@@ -136,7 +136,7 @@ model Invitado {
   estado         EstadoInvitado @default(PENDIENTE_PAGO)
 
   // Codigo unico de entrada. Null hasta que se pague; al pagar, se genera.
-  // Formato BC-XXXXXXXX.
+  // Formato CI-XXXXXXXX.
   // Anti-reuse: solo se puede "usar" 1 vez (ver registradoEn).
   codigo         String?  @unique
 
@@ -156,8 +156,12 @@ model Invitado {
   fechaAsignacion   DateTime?
 
   // null = el codigo fue pre-generado al pagar, la persona aun no ha entrado.
-  // set = la persona ya entro a la puerta (timestamp de la entrada).
-  registradoEn  DateTime?
+  // set = timestamp del primer ingreso. El ticket permite reingreso.
+  registradoEn       DateTime?
+  ultimoReingresoEn  DateTime?
+  reingresos         Int       @default(0)
+  almuerzoEntregadoEn DateTime?
+  refrigerioEntregadoEn DateTime?
 
   notasInternas  String?
 
@@ -196,20 +200,20 @@ model Configuracion {
   id                String   @id @default("singleton")
 
   // Datos del evento
-  nombre            String   @default("Bajo el Capo")
+  nombre            String   @default("Cumbre Impacto Putumayo 2026")
   fecha             DateTime // fecha y hora del evento
   puertas           String   // hora de apertura de puertas (texto libre, ej "5:45 pm")
   lugar             String   // nombre del lugar
   barrio            String?  // barrio/direccion adicional
   ciudad            String?  // ciudad (opcional)
-  aforo             Int      @default(150)
-  precioPorPersona  Int      @default(25000) // en COP
+  aforo             Int      @default(0)
+  precioPorPersona  Int      @default(45000) // en COP
 
   // Contacto del organizador
   organizadorNombre    String  @default("Fredy")
   organizadorEmail     String  @default("fredy@gmail.com")
-  organizadorTelefono  String  @default("+573118268444") // E.164
-  organizadorWhatsapp  String  @default("573118268444") // sin +, para wa.me/
+  organizadorTelefono  String  @default("") // E.164
+  organizadorWhatsapp  String  @default("") // sin +, para wa.me/
 
   // Metadata
   actualizadoEn    DateTime @updatedAt
@@ -218,3 +222,4 @@ model Configuracion {
 
   @@map("configuracion")
 }
+

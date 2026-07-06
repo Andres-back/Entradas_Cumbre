@@ -13,7 +13,9 @@ export function CancelarInvitadoBtn({ invitadoId }: { invitadoId: string }) {
   const router = useRouter();
 
   const action = async (_prev: CancelarInvitadoState, fd: FormData) => {
-    const r = await cancelarInvitado(_prev, fd);
+    void _prev;
+    void fd;
+    const r = await cancelarInvitado();
     if (r.success) {
       toast.success("Invitado removido.");
       router.refresh();
@@ -47,3 +49,5 @@ function CancelSubmitBtn() {
     </button>
   );
 }
+
+

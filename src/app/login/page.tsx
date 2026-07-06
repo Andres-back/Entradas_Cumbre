@@ -3,7 +3,7 @@ import { LoginForm } from "./login-form";
 import { Wrench } from "lucide-react";
 
 export const metadata = {
-  title: "Acceso al panel | Bajo el Capó",
+  title: "Acceso al panel | Cumbre Impacto",
 };
 
 type Props = {
@@ -12,8 +12,9 @@ type Props = {
 
 export default async function LoginPage({ searchParams }: Props) {
   const { next, from } = await searchParams;
-  // Si viene del admin (from=/admin) priorizar eso
-  const target = from || next;
+  // Si viene del admin (from=/admin) priorizar eso. Sin destino explicito,
+  // este login es para organizadores y debe abrir el panel.
+  const target = from || next || "/admin";
 
   return (
     <main className="flex-1 flex items-center justify-center py-20 px-4">
@@ -36,3 +37,5 @@ export default async function LoginPage({ searchParams }: Props) {
     </main>
   );
 }
+
+

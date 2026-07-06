@@ -18,6 +18,10 @@ interface InvitadoTicketCardProps {
   telefono: string;
   codigo: string | null;
   registradoEn: Date | null;
+  ultimoReingresoEn: Date | null;
+  reingresos: number;
+  almuerzoEntregadoEn: Date | null;
+  refrigerioEntregadoEn: Date | null;
   mesaNumero: number | null;
   silla: number | null;
   estado: EstadoInvitado;
@@ -27,7 +31,7 @@ interface InvitadoTicketCardProps {
  * Card de un invitado del grupo con su codigo unico (ADR-011).
  * - Muestra mesa + silla si estan asignados
  * - Boton "Descargar PNG" solo si tiene codigo
- * - PNG estilo garage vintage con QR para que Fredy lo escanee
+ * - PNG estilo garage vintage con QR para que el equipo organizador lo escanee
  */
 export function InvitadoTicketCard({
   numero,
@@ -35,6 +39,10 @@ export function InvitadoTicketCard({
   telefono,
   codigo,
   registradoEn,
+  ultimoReingresoEn,
+  reingresos,
+  almuerzoEntregadoEn,
+  refrigerioEntregadoEn,
   mesaNumero,
   silla,
   estado,
@@ -109,7 +117,7 @@ export function InvitadoTicketCard({
             </p>
           ) : (
             <p className="text-ash text-xs mt-2 flex items-center gap-1">
-              <Hourglass className="h-3 w-3" />               Código pendiente de pago
+              <Hourglass className="h-3 w-3" />               Código aporte pendiente
             </p>
           )}
           {isAsistio && (
@@ -120,6 +128,42 @@ export function InvitadoTicketCard({
                 minute: "2-digit",
               })}
             </p>
+          )}
+          {isAsistio && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-subhead uppercase tracking-wider">
+              <span className="rounded-full border border-ember-bright/30 px-2 py-1 text-ember-bright">
+                Reingresos: {reingresos}
+              </span>
+              {ultimoReingresoEn && (
+                <span className="rounded-full border border-white/10 px-2 py-1 text-ash">
+                  Ultimo:{" "}
+                  {new Date(ultimoReingresoEn).toLocaleTimeString("es-CO", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-1",
+                  almuerzoEntregadoEn
+                    ? "border-signal-green/35 text-signal-green"
+                    : "border-white/10 text-ash"
+                )}
+              >
+                Almuerzo: {almuerzoEntregadoEn ? "entregado" : "pendiente"}
+              </span>
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-1",
+                  refrigerioEntregadoEn
+                    ? "border-signal-green/35 text-signal-green"
+                    : "border-white/10 text-ash"
+                )}
+              >
+                Refrigerio: {refrigerioEntregadoEn ? "entregado" : "pendiente"}
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -228,11 +272,11 @@ async function descargarTicketPng({
 
   ctx.fillStyle = "#f3e3c2";
   ctx.font = "bold 56px Georgia, serif";
-  ctx.fillText("BAJO EL CAPÓ", W / 2, 150);
+  ctx.fillText("CUMBRE IMPACTO", W / 2, 150);
 
   ctx.fillStyle = "#b8a690";
   ctx.font = "22px Georgia, serif";
-  ctx.fillText("Sábado 20 de junio · 6:00 pm", W / 2, 195);
+  ctx.fillText("10 y 11 de julio de 2026", W / 2, 195);
 
   ctx.strokeStyle = "#3d322a";
   ctx.lineWidth = 1;
@@ -322,7 +366,7 @@ async function descargarTicketPng({
   );
   ctx.fillStyle = "#8a7a6a";
   ctx.font = "14px monospace";
-  ctx.fillText("Un solo uso · BajoelCapo 2026", W / 2, SUBFOOTER_Y);
+  ctx.fillText("Reingreso permitido · Cumbre Impacto 2026", W / 2, SUBFOOTER_Y);
 
   const blob: Blob = await new Promise((resolve, reject) => {
     canvas.toBlob((b) => {
@@ -333,7 +377,7 @@ async function descargarTicketPng({
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `bajo-el-capo-${codigo.toLowerCase()}.png`;
+  a.download = `cumbre-impacto-${codigo.toLowerCase()}.png`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -348,3 +392,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.src = src;
   });
 }
+
+
+

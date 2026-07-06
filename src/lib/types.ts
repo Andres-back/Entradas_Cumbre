@@ -18,6 +18,10 @@ export interface InvitadoResumen {
   mesaId: string | null;
   silla: number | null;
   registradoEn: Date | null;
+  ultimoReingresoEn: Date | null;
+  reingresos: number;
+  almuerzoEntregadoEn: Date | null;
+  refrigerioEntregadoEn: Date | null;
   fechaPago: Date | null;
   fechaAsignacion: Date | null;
 }
@@ -40,6 +44,7 @@ export type AdminActionResult<T = void> =
 
 export type ValidarEstado =
   | "ok"
+  | "reingreso"
   | "completo"
   | "cancelado"
   | "no_pagado"
@@ -56,6 +61,10 @@ export interface ValidarIngreso {
   mesaNumero: number | null;
   silla: number | null;
   registradoEn: Date | null;
+  ultimoReingresoEn: Date | null;
+  reingresos: number;
+  almuerzoEntregadoEn: Date | null;
+  refrigerioEntregadoEn: Date | null;
 }
 
 export interface ValidarReserva {
@@ -83,3 +92,13 @@ export interface ConfirmarIngresoResult {
   reserva?: ValidarReserva;
   invitado?: ValidarIngreso;
 }
+
+export interface OperacionInvitadoResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+  reserva?: ValidarReserva;
+  invitado?: ValidarIngreso;
+}
+
+

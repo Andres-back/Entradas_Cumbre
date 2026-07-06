@@ -6,12 +6,12 @@ interface RpmLoaderProps {
 }
 
 /**
- * Loader con forma de tacometro de motor.
+ * Loader con forma de indicador de carga.
  * Aguja oscila simulando RPM, marcas 0-8 (rojas las altas).
  * Usado en estados de loading (registro, validacion, etc).
  */
 export function RpmLoader({
-  label = "Calentando motor...",
+  label = "Preparando acceso...",
   className,
 }: RpmLoaderProps) {
   return (
@@ -79,3 +79,5 @@ export function RpmLoader({
     </div>
   );
 }
+
+

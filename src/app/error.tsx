@@ -20,7 +20,7 @@ export default function ErrorPage({
         <div className="w-full max-w-md text-center">
           <Wrench className="h-16 w-16 text-signal-rust mx-auto mb-6" strokeWidth={2.5} />
           <h1 className="font-display text-4xl text-cream mb-2">Algo salió mal</h1>
-          <p className="text-ash text-lg mb-8">Parece que el motor se paró. Intentá de nuevo.</p>
+          <p className="text-ash text-lg mb-8">Parece que el proceso se detuvo. Intenta de nuevo.</p>
           <button
             onClick={reset}
             className="inline-flex items-center gap-2 font-subhead text-base uppercase tracking-widest text-ember-bright hover:text-signal-green transition-colors bg-transparent border-none cursor-pointer"
@@ -32,3 +32,6 @@ export default function ErrorPage({
     </div>
   );
 }
+
+
+

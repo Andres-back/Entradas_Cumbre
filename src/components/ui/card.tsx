@@ -8,7 +8,7 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "relative rounded-lg border border-taller-iron bg-taller-steel p-6 shadow-card",
+      "neon-card relative rounded-lg border border-taller-iron bg-taller-steel p-6 shadow-card",
       "before:absolute before:inset-0 before:rounded-lg before:pointer-events-none",
       "before:bg-[linear-gradient(135deg,rgba(232,154,60,0.04)_0%,transparent_50%)]",
       interactive && "card-shine hover-lift cursor-pointer",
@@ -79,3 +79,5 @@ export {
   CardContent,
   CardFooter,
 };
+
+

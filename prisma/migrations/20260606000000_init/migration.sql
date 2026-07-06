@@ -1,4 +1,4 @@
-﻿-- Baseline migration: schema inicial Bajo el Capo
+-- Baseline migration: schema inicial Cumbre Impacto
 -- Generada con prisma db pull, aplicada con prisma db push
 
 -- Enums

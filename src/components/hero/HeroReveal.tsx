@@ -18,7 +18,7 @@ import { EVENT_DATE, EVENT_BARRIO } from "@/lib/constants";
  *   t=0.9s  Subtitulo "Lo que ningún hombre..." fade-up
  *   t=1.1s  Tagline con "hablar de lo que callamos" en cursiva fade-up
  *   t=1.3s  Info strip (fecha / hora / barrio) fade-up
- *   t=1.5s  CTA (Sacá tu llave) fade-up
+ *   t=1.5s  CTA (Inscríbete) fade-up
  *   t=1.8s  Scroll indicator pulse infinite (delay inicial para no chocar con el CTA)
  */
 
@@ -48,19 +48,19 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
       {/* Foto full-bleed con WebP responsive (mobile: 30KB, desktop: 100KB)
           y fallback PNG para navegadores sin WebP.
           Original 1.9MB optimizado con sharp-cli (1600px q=78, 800px q=75). */}
-      <picture aria-hidden className="absolute inset-0">
+      <picture className="absolute inset-0">
         <source
           media="(max-width: 767px)"
           type="image/webp"
-          srcSet="/hero-foto-mobile.webp"
+          srcSet="/cumbre-impacto/cumbre-impacto-wallpaper.png"
         />
         <source
           media="(min-width: 768px)"
           type="image/webp"
-          srcSet="/hero-foto.webp"
+          srcSet="/cumbre-impacto/cumbre-impacto-wallpaper.png"
         />
         <img
-          src="/hero-foto.png"
+          src="/cumbre-impacto/cumbre-impacto-wallpaper.png"
           alt=""
           className="h-full w-full object-cover"
           style={{ objectPosition: "30% center" }}
@@ -147,7 +147,7 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
             data-anim
             className="mt-3 sm:mt-4 px-2 sm:px-0 max-w-md text-[13px] sm:text-sm md:text-base leading-relaxed text-bone animate-fade-up-4"
           >
-            Una charla entre hombres para{" "}
+            Un encuentro para{" "}
             <span className="italic text-ember-bright">
               hablar de lo que callamos
             </span>
@@ -189,7 +189,7 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
             </span>
           </div>
 
-          {/* CTA principal: "Saca tu llave".
+          {/* CTA principal: "Realiza tu inscripción".
               El acceso admin ya no se muestra aqui: el admin se loguea
               y tiene su panel en /admin. Antes habia un segundo boton
               "Acceso admin" que duplicaba el flujo de /login. */}
@@ -202,7 +202,7 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
               className="inline-flex w-full sm:w-auto h-12 sm:h-14 items-center justify-center gap-2 rounded-md bg-ember-rust px-6 sm:px-8 font-subhead text-sm sm:text-base md:text-lg font-semibold uppercase tracking-wider text-cream shadow-plate transition-all hover:bg-ember-bright hover:shadow-ember active:scale-[0.98]"
             >
               <Wrench className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={2.5} />
-              Sac&aacute; tu llave
+              Sac&aacute; tu inscripción
             </Link>
           </div>
         </div>
@@ -234,3 +234,5 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
     </section>
   );
 }
+
+

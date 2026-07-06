@@ -418,3 +418,5 @@ export function MesaCard({ mesa, invitadosSinMesa }: MesaCardProps) {
     </div>
   );
 }
+
+

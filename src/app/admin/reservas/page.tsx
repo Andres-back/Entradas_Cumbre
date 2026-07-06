@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { EstadoReserva } from "@prisma/client";
 import ReservasTable from "./reservas-table";
+import { CrearReservaButton } from "./reserva-crud";
 
 export const metadata = {
   title: "Reservas | Admin",
@@ -36,24 +37,27 @@ export default async function AdminReservasPage({
 
   const tabs: { value: Filtro; label: string }[] = [
     { value: "TODOS", label: "Todos" },
-    { value: "PAGO_PENDIENTE", label: "Pago pendiente" },
-    { value: "PARCIAL", label: "Pago parcial" },
+    { value: "PAGO_PENDIENTE", label: "Aporte pendiente" },
+    { value: "PARCIAL", label: "Aporte parcial" },
     { value: "ASISTIO", label: "Asistió" },
     { value: "CANCELADO", label: "Cancelado" },
   ];
 
   return (
     <main className="px-3 py-4 md:px-8 md:py-8">
-      <div className="mb-4 md:mb-6">
-        <p className="text-ash text-sm md:text-base uppercase tracking-widest font-subhead">
-          Gestión
-        </p>
-        <h1 className="font-display text-2xl md:text-3xl text-cream mt-1">
-          Reservas
-        </h1>
-        <p className="text-bone text-base md:text-lg mt-1">
-          {reservas.length} {reservas.length === 1 ? "reserva" : "reservas"}
-        </p>
+      <div className="mb-4 flex flex-col gap-4 md:mb-6 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-ash text-sm md:text-base uppercase tracking-widest font-subhead">
+            Gestión
+          </p>
+          <h1 className="font-display text-2xl md:text-3xl text-cream mt-1">
+            Reservas
+          </h1>
+          <p className="text-bone text-base md:text-lg mt-1">
+            {reservas.length} {reservas.length === 1 ? "reserva" : "reservas"}
+          </p>
+        </div>
+        <CrearReservaButton />
       </div>
 
       <div className="mb-4 md:mb-6 flex gap-1.5 md:gap-2 overflow-x-auto pb-2 -mx-3 px-3 md:mx-0 md:px-0">

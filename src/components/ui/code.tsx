@@ -6,7 +6,7 @@ interface CodeProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
- * Display tipo "ticket viejo" para codigos de entrada BC-XXXXXXXX.
+ * Display tipo "ticket viejo" para codigos de entrada CI-XXXXXXXX.
  * Tipografia mono vintage (Special Elite), borde dasheado, glow naranja.
  */
 export function Code({ size = "md", className, ...props }: CodeProps) {
@@ -26,3 +26,5 @@ export function Code({ size = "md", className, ...props }: CodeProps) {
     />
   );
 }
+
+
