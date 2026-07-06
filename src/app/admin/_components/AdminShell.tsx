@@ -104,6 +104,19 @@ export function AdminShell({
         })}
       </nav>
 
+      {/* Logout mobile */}
+      <div className="md:hidden border-t border-taller-iron bg-taller-night px-3 py-2">
+        <form action="/logout" method="POST">
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2 px-3 py-2.5 rounded-md text-lg font-subhead uppercase tracking-wider text-ash active:bg-taller-steel/50 transition-colors"
+          >
+            <LogOut className="h-5 w-5" />
+            Salir
+          </button>
+        </form>
+      </div>
+
       {/* Content */}
       <div className="flex-1 min-w-0">{children}</div>
     </div>

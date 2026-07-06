@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
@@ -58,9 +58,10 @@ export async function cambiarContrasenaObligatoria(
     },
   });
 
-  revalidatePath("/", "layout");
-
-  return { error: null, success: true };
+  // Invalida el JWT actual (que aun tiene debeCambiarContrasena=true)
+  // para que se refresque al siguiente login.
+  await signOut({ redirect: false });
+  redirect("/login");
 }
 
 /**

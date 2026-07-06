@@ -102,7 +102,11 @@ function formatLocal(telefono: string): string {
   return `${d.slice(0, 3)} ${d.slice(3, 6)} ${d.slice(6)}`;
 }
 
-export function ValidarForm() {
+export function ValidarForm({
+  codigoInicial = null,
+}: {
+  codigoInicial?: string | null;
+}) {
   const [result, setResult] = useState<ValidarResult | null>(null);
   const [feedback, setFeedback] = useState<{
     type: "ok" | "error";
@@ -125,6 +129,19 @@ export function ValidarForm() {
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
   });
+
+  // Auto-ejecutar si viene un código desde el detalle de reserva
+  const ran = useRef(false);
+  useEffect(() => {
+    if (codigoInicial && !ran.current) {
+      ran.current = true;
+      const fd = new FormData();
+      fd.set("codigo", codigoInicial);
+      startTransition(async () => {
+        setResult(await validarCodigo(null, fd));
+      });
+    }
+  }, [codigoInicial]);
 
   useEffect(() => {
     if (result) {

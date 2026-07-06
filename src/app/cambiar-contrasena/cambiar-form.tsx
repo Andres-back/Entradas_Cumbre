@@ -66,7 +66,7 @@ export function CambiarContrasenaForm({
         return;
       }
       if (result.success) {
-        router.push("/mi-reserva");
+        router.push("/login?next=/mi-reserva");
         router.refresh();
       }
     });

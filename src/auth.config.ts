@@ -44,13 +44,15 @@ export const authConfig = {
 
       // Si el usuario debe cambiar contrasena (pwd temporal asignada por admin),
       // lo bloqueamos en /cambiar-contrasena hasta que lo haga.
-      // Excepciones: /logout (puede salir) y /api/auth (NextAuth necesita pasar).
+      // Excepciones: /logout (puede salir), /api/auth (NextAuth necesita pasar),
+      // y _next/data (server actions internas de Next.js).
       if (
         debeCambiarPwd &&
         isLoggedIn &&
         !isOnCambiarPwd &&
         !isOnLogout &&
-        !isOnApiAuth
+        !isOnApiAuth &&
+        !path.startsWith("/_next/data")
       ) {
         return Response.redirect(new URL("/cambiar-contrasena", nextUrl));
       }

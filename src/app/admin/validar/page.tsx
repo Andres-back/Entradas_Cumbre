@@ -6,7 +6,14 @@ export const metadata = {
   title: "Validar entrada | Admin",
 };
 
-export default function AdminValidarPage() {
+export default async function AdminValidarPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ codigo?: string }>;
+}) {
+  const { codigo } = (await searchParams) ?? {};
+  const codigoInicial = codigo ?? null;
+
   return (
     <main className="px-3 py-4 md:px-8 md:py-8 max-w-xl mx-auto">
       <div className="mb-4 md:mb-6 text-center">
@@ -21,7 +28,7 @@ export default function AdminValidarPage() {
         </p>
       </div>
 
-      <ValidarForm />
+      <ValidarForm codigoInicial={codigoInicial} />
 
       <Card className="mt-4 md:mt-6 hidden sm:block">
         <CardHeader>

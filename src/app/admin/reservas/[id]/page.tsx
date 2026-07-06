@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Utensils,
   Coffee,
+  ScanLine,
 } from "lucide-react";
 import { buildWhatsappSimpleUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
@@ -302,6 +303,16 @@ export default async function AdminReservaDetalle({
                 >
                   {invitadoEstadoLabel[inv.estado]}
                 </Badge>
+                {inv.codigo && (
+                  <Link
+                    href={`/admin/validar?codigo=${inv.codigo}`}
+                    className="text-ember-bright text-sm shrink-0 flex items-center gap-0.5 hover:underline"
+                    title={`Validar ${inv.codigo}`}
+                  >
+                    <ScanLine className="h-4 w-4" />
+                    <span className="hidden sm:inline">Validar</span>
+                  </Link>
+                )}
                 {inv.registradoEn && (
                   <span className="text-ash text-sm shrink-0 hidden sm:flex items-center gap-0.5">
                     <Clock className="h-4 w-4" />
