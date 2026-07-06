@@ -164,7 +164,7 @@
   84% { opacity: 1; }
 }
 
-/* Slow rotate para el capó (cuando "se abre") */
+/* Slow rotate para paneles que se abren */
 @keyframes hood-lift {
   0% { transform: rotateX(0deg); }
   100% { transform: rotateX(-110deg); }
