@@ -22,7 +22,7 @@ import { buildWhatsappSimpleUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { MarcarPagadoForm } from "./marcar-pagado-form";
 import { CancelarForm } from "./cancelar-form";
-import { IrAlValidadorButton, ReactivarButton } from "./action-buttons";
+import { ReactivarButton } from "./action-buttons";
 import { ResetPwdButton } from "../../usuarios/reset-button";
 import { getConfiguracion } from "@/lib/constants";
 import { EstadoInvitado, EstadoReserva } from "@prisma/client";
@@ -306,11 +306,11 @@ export default async function AdminReservaDetalle({
                 {inv.codigo && (
                   <Link
                     href={`/admin/validar?codigo=${inv.codigo}`}
-                    className="text-ember-bright text-sm shrink-0 flex items-center gap-0.5 hover:underline"
+                    className="inline-flex items-center gap-1 rounded-md bg-ember-rust px-2.5 py-1.5 text-sm font-semibold uppercase tracking-wider text-cream shadow-sm transition-all hover:bg-ember-bright hover:shadow-ember active:scale-[0.97] shrink-0"
                     title={`Validar ${inv.codigo}`}
                   >
                     <ScanLine className="h-4 w-4" />
-                    <span className="hidden sm:inline">Validar</span>
+                    Validar
                   </Link>
                 )}
                 {inv.registradoEn && (
@@ -430,45 +430,19 @@ export default async function AdminReservaDetalle({
               </Card>
             )}
 
-            {invitadosPagados.length > 0 && (
+            {invitadosOperativos > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base md:text-lg">Validar entrada</CardTitle>
+                  <CardTitle className="text-base md:text-lg">Asignar mesas</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-bone text-base md:text-lg">
-                    {invitadosPagados.length} asistente
-                    {invitadosPagados.length === 1 ? "" : "s"} confirmado
-                    {invitadosPagados.length === 1 ? "" : "s"} y pendiente
-                    {invitadosPagados.length === 1 ? "" : "s"} de entrar.
-                  </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <IrAlValidadorButton />
-                    <Link
-                      href="/admin/mesas"
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ember-bright/40 bg-taller-steel text-bone px-3 py-2 text-lg hover:border-ember-bright min-h-[44px] sm:min-h-0"
-                    >
-                      <Armchair className="h-5 w-5" />
-                      Asignar mesas
-                    </Link>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {invitadosPagados.length === 0 && invitadosOperativos > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base md:text-lg">
-                    Reingreso, almuerzo y refrigerio
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-bone text-base md:text-lg">
-                    La inscripción ya tiene ingreso registrado. Usa el validador para
-                    reingresos, entrega de almuerzo y entrega de refrigerio.
-                  </p>
-                  <IrAlValidadorButton />
+                <CardContent>
+                  <Link
+                    href="/admin/mesas"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md border border-ember-bright/40 bg-taller-steel text-bone px-3 py-2 text-lg hover:border-ember-bright min-h-[44px] sm:min-h-0"
+                  >
+                    <Armchair className="h-5 w-5" />
+                    Ir a mesas
+                  </Link>
                 </CardContent>
               </Card>
             )}

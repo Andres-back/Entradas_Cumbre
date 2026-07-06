@@ -102,20 +102,16 @@ export function AdminShell({
             </Link>
           );
         })}
-      </nav>
-
-      {/* Logout mobile */}
-      <div className="md:hidden border-t border-taller-iron bg-taller-night px-3 py-2">
-        <form action="/logout" method="POST">
+        <form action="/logout" method="POST" className="shrink-0">
           <button
             type="submit"
-            className="flex w-full items-center gap-2 px-3 py-2.5 rounded-md text-lg font-subhead uppercase tracking-wider text-ash active:bg-taller-steel/50 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 min-h-[48px] text-sm font-subhead uppercase tracking-wider whitespace-nowrap border-b-2 border-transparent text-signal-rust active:bg-taller-steel/50 transition-colors"
           >
             <LogOut className="h-5 w-5" />
             Salir
           </button>
         </form>
-      </div>
+      </nav>
 
       {/* Content */}
       <div className="flex-1 min-w-0">{children}</div>
