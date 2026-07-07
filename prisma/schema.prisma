@@ -18,8 +18,8 @@ enum Rol {
 /// PAGADO ya tienen `estado = ASISTIO` en la puerta.
 enum EstadoReserva {
   PAGO_PENDIENTE // 0 invitados pagados
-  PARCIAL        // >= 1 invitado pagado
-  ASISTIO        // todos los PAGADOS entraron
+  PARCIAL // >= 1 invitado pagado
+  ASISTIO // todos los PAGADOS entraron
   CANCELADO
 }
 
@@ -36,35 +36,56 @@ enum MedioPago {
   EFECTIVO
 }
 
+enum RolPic {
+  PASTOR
+  LIDER
+  SERVIDOR
+  JOVEN
+  ADULTO
+  INVITADO
+  OTRO
+}
+
 model User {
-  id              String    @id @default(cuid())
-  nombreCompleto  String
-  email           String    @unique
-  telefono        String
-  passwordHash    String
-  documento       String?
-  rol             Rol       @default(USUARIO)
-  reserva         Reserva?
-  pagosRegistrados        Pago[]                @relation("AdminQueRegistroPago")
-  invitadosPagados        Invitado[]            @relation("AdminQueMarcoInvitadoPagado")
-  invitadosAsignados      Invitado[]            @relation("AdminQueAsignoMesa")
-  configuracionesEditadas Configuracion[]       @relation("AdminQueEditaConfiguracion")
+  id                         String          @id @default(cuid())
+  nombreCompleto             String
+  email                      String          @unique
+  telefono                   String
+  passwordHash               String
+  documento                  String?
+  fechaNacimiento            DateTime?
+  iglesia                    String?
+  departamento               String?
+  ciudad                     String?
+  rolPic                     RolPic?
+  contactoEmergenciaNombre   String?
+  contactoEmergenciaTelefono String?
+  aprobacionPastor           Boolean         @default(false)
+  tallerId                   String?
+  taller                     Taller?         @relation("UserTaller", fields: [tallerId], references: [id], onDelete: SetNull)
+  rol                        Rol             @default(USUARIO)
+  reserva                    Reserva?
+  pagosRegistrados           Pago[]          @relation("AdminQueRegistroPago")
+  invitadosPagados           Invitado[]      @relation("AdminQueMarcoInvitadoPagado")
+  invitadosAsignados         Invitado[]      @relation("AdminQueAsignoMesa")
+  configuracionesEditadas    Configuracion[] @relation("AdminQueEditaConfiguracion")
 
   // Si true, el usuario DEBE cambiar la contrasena antes de usar la app
   // (pwd temporal asignada por el admin via /admin/reservas/[id]).
   // El proxy redirige a /cambiar-contrasena hasta que sea false.
   debeCambiarContrasena Boolean @default(false)
 
-  creadoEn        DateTime  @default(now())
-  actualizadoEn   DateTime  @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
+  @@index([tallerId])
   @@map("users")
 }
 
 model Reserva {
-  id                  String         @id @default(cuid())
-  userId              String         @unique
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // N invitados (1..30) viven en la tabla `Invitado` (ADR-011).
   // El titular (User) es el invitado #1 conceptual pero no tiene fila propia en Invitado;
@@ -72,48 +93,48 @@ model Reserva {
 
   // Total esperado = invitados.length * PRECIO_PERSONA.
   // Se recalcula cada vez que se anade/quita un invitado.
-  valorTotal          Int
+  valorTotal Int
 
-  estado              EstadoReserva  @default(PAGO_PENDIENTE)
+  estado EstadoReserva @default(PAGO_PENDIENTE)
 
-  confirmadaEn        DateTime?
+  confirmadaEn      DateTime?
   // pagadaEn eliminado: la reserva no se "paga" como unidad; cada invitado se paga.
-  asistioEn           DateTime?
-  canceladaEn         DateTime?
-  motivoCancelacion   String?
+  asistioEn         DateTime?
+  canceladaEn       DateTime?
+  motivoCancelacion String?
 
-  pagos               Pago[]
-  invitados           Invitado[]
+  pagos     Pago[]
+  invitados Invitado[]
 
-  creadaEn            DateTime       @default(now())
-  actualizadaEn       DateTime       @updatedAt
+  creadaEn      DateTime @default(now())
+  actualizadaEn DateTime @updatedAt
 
   @@index([estado])
   @@map("reservas")
 }
 
 model Pago {
-  id                String      @id @default(cuid())
-  reservaId         String
-  reserva           Reserva     @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  reservaId String
+  reserva   Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
 
-  medio             MedioPago
-  referencia        String?
+  medio         MedioPago
+  referencia    String?
   // monto = invitadosCubiertos.length * PRECIO_PERSONA
-  monto             Int
-  notasInternas     String?
+  monto         Int
+  notasInternas String?
 
   // IDs de los Invitados cubiertos por este pago. 1 pago puede cubrir 1..N.
   // Es denormalizado (los pagos no dependen de esto para queries funcionales).
   invitadosCubiertos String[]
 
-  adminId           String
-  admin             User        @relation("AdminQueRegistroPago", fields: [adminId], references: [id])
+  adminId String
+  admin   User   @relation("AdminQueRegistroPago", fields: [adminId], references: [id])
 
-  registradoEn      DateTime    @default(now())
-  revertido         Boolean     @default(false)
-  revertidoEn       DateTime?
-  motivoReversion   String?
+  registradoEn    DateTime  @default(now())
+  revertido       Boolean   @default(false)
+  revertidoEn     DateTime?
+  motivoReversion String?
 
   @@index([reservaId])
   @@map("pagos")
@@ -123,57 +144,88 @@ model Pago {
 /// Cada fila tiene su propio codigo, mesa y silla (ADR-011).
 /// Reemplaza al par `Reserva.acompanante*` + `Ingreso` de versiones anteriores.
 model Invitado {
-  id            String   @id @default(cuid())
-  reservaId     String
-  reserva       Reserva  @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  id        String  @id @default(cuid())
+  reservaId String
+  reserva   Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
 
   // 1..N, secuencial por reserva.
-  numero        Int
+  numero Int
 
-  nombreCompleto String
-  telefono       String
+  nombreCompleto             String
+  telefono                   String
+  emailContacto              String?
+  documento                  String?
+  fechaNacimiento            DateTime?
+  iglesia                    String?
+  departamento               String?
+  ciudad                     String?
+  rolPic                     RolPic?
+  contactoEmergenciaNombre   String?
+  contactoEmergenciaTelefono String?
+  aprobacionPastor           Boolean   @default(false)
+  tallerId                   String?
+  taller                     Taller?   @relation("InvitadoTaller", fields: [tallerId], references: [id], onDelete: SetNull)
 
-  estado         EstadoInvitado @default(PENDIENTE_PAGO)
+  estado EstadoInvitado @default(PENDIENTE_PAGO)
 
   // Codigo unico de entrada. Null hasta que se pague; al pagar, se genera.
   // Formato CI-XXXXXXXX.
   // Anti-reuse: solo se puede "usar" 1 vez (ver registradoEn).
-  codigo         String?  @unique
+  codigo String? @unique
 
   // null hasta que el admin asigne mesa+silla.
-  mesaId         String?
-  mesa           Mesa?    @relation(fields: [mesaId], references: [id], onDelete: SetNull)
-  silla          Int?
+  mesaId String?
+  mesa   Mesa?   @relation(fields: [mesaId], references: [id], onDelete: SetNull)
+  silla  Int?
 
   // Auditoria de pago (seteado al pagar).
-  adminIdPago    String?
-  adminPago      User?    @relation("AdminQueMarcoInvitadoPagado", fields: [adminIdPago], references: [id])
-  fechaPago      DateTime?
+  adminIdPago String?
+  adminPago   User?     @relation("AdminQueMarcoInvitadoPagado", fields: [adminIdPago], references: [id])
+  fechaPago   DateTime?
 
   // Auditoria de asignacion de mesa.
   adminIdAsignacion String?
-  adminAsignacion   User?    @relation("AdminQueAsignoMesa", fields: [adminIdAsignacion], references: [id])
+  adminAsignacion   User?     @relation("AdminQueAsignoMesa", fields: [adminIdAsignacion], references: [id])
   fechaAsignacion   DateTime?
 
   // null = el codigo fue pre-generado al pagar, la persona aun no ha entrado.
   // set = timestamp del primer ingreso. El ticket permite reingreso.
-  registradoEn       DateTime?
-  ultimoReingresoEn  DateTime?
-  reingresos         Int       @default(0)
-  almuerzoEntregadoEn DateTime?
+  registradoEn          DateTime?
+  ultimoReingresoEn     DateTime?
+  reingresos            Int       @default(0)
+  almuerzoEntregadoEn   DateTime?
   refrigerioEntregadoEn DateTime?
 
-  notasInternas  String?
+  notasInternas String?
 
-  creadoEn       DateTime @default(now())
-  actualizadoEn  DateTime @updatedAt
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
 
-  @@unique([reservaId, numero])  // un slot por reserva
+  @@unique([reservaId, numero]) // un slot por reserva
+  @@unique([mesaId, silla]) // evita dos invitados en la misma mesa+silla
   @@index([reservaId])
-  @@index([codigo])              // busqueda en el validador de puerta
+  @@index([codigo]) // busqueda en el validador de puerta
   @@index([estado])
-  @@unique([mesaId, silla])      // evita dos invitados en la misma mesa+silla
+  @@index([tallerId])
   @@map("invitados")
+}
+
+model Taller {
+  id          String  @id @default(cuid())
+  nombre      String  @unique
+  descripcion String?
+  cupo        Int?
+  activo      Boolean @default(true)
+  orden       Int     @default(0)
+
+  usuarios  User[]     @relation("UserTaller")
+  invitados Invitado[] @relation("InvitadoTaller")
+
+  creadoEn      DateTime @default(now())
+  actualizadoEn DateTime @updatedAt
+
+  @@index([activo, orden])
+  @@map("talleres")
 }
 
 /// Mesa fisica del salon. Numero 1+ en orden visual.
@@ -186,8 +238,8 @@ model Mesa {
   notas     String?
   invitados Invitado[]
 
-  creadaEn       DateTime @default(now())
-  actualizadaEn  DateTime @updatedAt
+  creadaEn      DateTime @default(now())
+  actualizadaEn DateTime @updatedAt
 
   @@map("mesas")
 }
@@ -197,23 +249,23 @@ model Mesa {
 /// toda la UI que muestra datos del evento (fecha, lugar, precio, etc.).
 /// Las variables de .env son el fallback inicial antes de la primera edicion.
 model Configuracion {
-  id                String   @id @default("singleton")
+  id String @id @default("singleton")
 
   // Datos del evento
-  nombre            String   @default("Cumbre Impacto Putumayo 2026")
-  fecha             DateTime // fecha y hora del evento
-  puertas           String   // hora de apertura de puertas (texto libre, ej "5:45 pm")
-  lugar             String   // nombre del lugar
-  barrio            String?  // barrio/direccion adicional
-  ciudad            String?  // ciudad (opcional)
-  aforo             Int      @default(0)
-  precioPorPersona  Int      @default(45000) // en COP
+  nombre           String   @default("Cumbre Impacto Putumayo 2026")
+  fecha            DateTime // fecha y hora del evento
+  puertas          String // hora de apertura de puertas (texto libre, ej "5:45 pm")
+  lugar            String // nombre del lugar
+  barrio           String? // barrio/direccion adicional
+  ciudad           String? // ciudad (opcional)
+  aforo            Int      @default(0)
+  precioPorPersona Int      @default(45000) // en COP
 
   // Contacto del organizador
-  organizadorNombre    String  @default("Fredy")
-  organizadorEmail     String  @default("fredy@gmail.com")
-  organizadorTelefono  String  @default("") // E.164
-  organizadorWhatsapp  String  @default("") // sin +, para wa.me/
+  organizadorNombre   String @default("Fredy")
+  organizadorEmail    String @default("fredy@gmail.com")
+  organizadorTelefono String @default("") // E.164
+  organizadorWhatsapp String @default("") // sin +, para wa.me/
 
   // Metadata
   actualizadoEn    DateTime @updatedAt
@@ -222,4 +274,3 @@ model Configuracion {
 
   @@map("configuracion")
 }
-

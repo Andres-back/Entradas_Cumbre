@@ -12,7 +12,7 @@ export const EVENT_CONFIG = {
   address: "Carrera 11A #15-44, Barrio San Francisco",
   addressLine1: "Carrera 11A #15-44",
   addressLine2: "Barrio San Francisco",
-  city: "Mocoa, Putumayo",
+  city: "Mocoa",
 
   socialHandle: "@PICLATINOAMERICA",
   socialUrl: process.env.SOCIAL_URL ?? "",
@@ -60,7 +60,7 @@ export const EVENT_JSON_LD = {
   },
   image: [EVENT_CONFIG.wallpaper],
   description:
-    "Cumbre Impacto Putumayo 2026. Sembrando y cosechando juntos. 10 y 11 de julio de 2026 en Mocoa, Putumayo.",
+    "Cumbre Impacto Putumayo 2026. Sembrando y cosechando juntos. 10 y 11 de julio de 2026 en Mocoa.",
 };
 
 

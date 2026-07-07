@@ -1521,3 +1521,205 @@ export async function eliminarReservaAdmin(reservaId: string): Promise<AdminActi
   revalidatePath("/mi-reserva");
   return { error: null, success: true, message: "Reserva eliminada." };
 }
+
+// ============================================================
+// ABONOS Y TALLERES (MVP Cumbre)
+// ============================================================
+
+const abonoReservaSchema = z.object({
+  reservaId: idSchema,
+  monto: z.coerce.number().int().min(1000, "El abono minimo es $1.000"),
+  medio: z.nativeEnum(MedioPago),
+  referencia: z.string().max(120).optional().nullable(),
+  notasInternas: z.string().max(500).optional().nullable(),
+});
+
+export async function registrarAbonoReserva(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  const session = await requireAdmin();
+  const adminId = session.user.id;
+  const parsed = abonoReservaSchema.safeParse({
+    reservaId: formData.get("reservaId"),
+    monto: formData.get("monto"),
+    medio: formData.get("medio"),
+    referencia: formData.get("referencia") || null,
+    notasInternas: formData.get("notas") || formData.get("notasInternas") || null,
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
+
+  const { reservaId, monto, medio, referencia, notasInternas } = parsed.data;
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      const reserva = await tx.reserva.findUnique({
+        where: { id: reservaId },
+        include: {
+          invitados: { orderBy: { numero: "asc" } },
+          pagos: { where: { revertido: false }, select: { monto: true } },
+        },
+      });
+      if (!reserva) throw new Error("RESERVA_NO_EXISTE");
+      if (reserva.estado === EstadoReserva.CANCELADO) throw new Error("RESERVA_CANCELADA");
+
+      const totalPagado = reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+      const saldo = Math.max(reserva.valorTotal - totalPagado, 0);
+      if (saldo <= 0) throw new Error("SIN_SALDO");
+      if (monto > saldo) throw new Error("ABONO_SUPERA_SALDO");
+
+      const totalDespues = totalPagado + monto;
+      const completa = totalDespues >= reserva.valorTotal;
+      const pendientes = reserva.invitados.filter((inv) => inv.estado === EstadoInvitado.PENDIENTE_PAGO);
+      const codigos: string[] = [];
+
+      if (completa) {
+        for (const inv of pendientes) {
+          let code: string | null = null;
+          for (let attempts = 0; attempts < 5; attempts++) {
+            const candidate = generateEntradaCode();
+            try {
+              await tx.invitado.update({
+                where: { id: inv.id, estado: EstadoInvitado.PENDIENTE_PAGO },
+                data: {
+                  estado: EstadoInvitado.PAGADO,
+                  codigo: candidate,
+                  adminIdPago: adminId,
+                  fechaPago: new Date(),
+                },
+              });
+              code = candidate;
+              break;
+            } catch (err) {
+              if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
+              throw err;
+            }
+          }
+          if (!code) throw new Error("NO_SE_PUDO_GENERAR_CODIGO");
+          codigos.push(code);
+        }
+      }
+
+      await tx.pago.create({
+        data: {
+          reservaId,
+          medio,
+          referencia,
+          notasInternas,
+          monto,
+          adminId,
+          invitadosCubiertos: completa ? pendientes.map((inv) => inv.id) : [],
+        },
+      });
+
+      await tx.reserva.update({
+        where: { id: reservaId },
+        data: {
+          estado: totalDespues > 0 ? EstadoReserva.PARCIAL : EstadoReserva.PAGO_PENDIENTE,
+          confirmadaEn: completa ? new Date() : null,
+        },
+      });
+
+      return { reservaId, completa, saldoRestante: reserva.valorTotal - totalDespues, codigo: codigos[0] };
+    });
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "RESERVA_NO_EXISTE") return { error: "Reserva no encontrada." };
+      if (err.message === "RESERVA_CANCELADA") return { error: "La reserva fue cancelada." };
+      if (err.message === "SIN_SALDO") return { error: "La reserva no tiene saldo pendiente." };
+      if (err.message === "ABONO_SUPERA_SALDO") return { error: "El abono no puede superar el saldo." };
+      if (err.message === "NO_SE_PUDO_GENERAR_CODIGO") return { error: "No se pudo generar codigo unico." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/reservas");
+  revalidatePath(`/admin/reservas/${result.reservaId}`);
+  revalidatePath("/admin/pagos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/mesas");
+  revalidatePath("/mi-reserva");
+  return {
+    error: null,
+    success: true,
+    message: result.completa
+      ? "Aporte completado. Codigo de entrada habilitado."
+      : `Abono registrado. Saldo pendiente: $${result.saldoRestante.toLocaleString("es-CO")}.`,
+    codigo: result.codigo,
+  };
+}
+
+const tallerAdminSchema = z.object({
+  nombre: z.string().trim().min(3).max(100),
+  descripcion: z.string().trim().max(500).optional().nullable(),
+  cupo: z.preprocess((v) => (v === "" || v === null ? null : v), z.coerce.number().int().min(1).nullable()).optional().nullable(),
+  orden: z.coerce.number().int().min(0).default(0),
+  activo: z.boolean().default(false),
+});
+
+function parseTallerForm(formData: FormData) {
+  return tallerAdminSchema.safeParse({
+    nombre: formData.get("nombre"),
+    descripcion: formData.get("descripcion") || null,
+    cupo: formData.get("cupo") || null,
+    orden: formData.get("orden") || 0,
+    activo: formData.get("activo") === "on",
+  });
+}
+
+export async function crearTallerAdmin(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const parsed = parseTallerForm(formData);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Datos invalidos.");
+  await prisma.taller.create({
+    data: {
+      nombre: parsed.data.nombre,
+      descripcion: parsed.data.descripcion || null,
+      cupo: parsed.data.cupo ?? null,
+      orden: parsed.data.orden,
+      activo: parsed.data.activo,
+    },
+  });
+  revalidatePath("/admin/talleres");
+  revalidatePath("/registro");
+}
+
+export async function editarTallerAdmin(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const tallerId = String(formData.get("tallerId") ?? "");
+  const idResult = idSchema.safeParse(tallerId);
+  if (!idResult.success) throw new Error("ID de taller invalido.");
+  const parsed = parseTallerForm(formData);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "Datos invalidos.");
+  await prisma.taller.update({
+    where: { id: tallerId },
+    data: {
+      nombre: parsed.data.nombre,
+      descripcion: parsed.data.descripcion || null,
+      cupo: parsed.data.cupo ?? null,
+      orden: parsed.data.orden,
+      activo: parsed.data.activo,
+    },
+  });
+  revalidatePath("/admin/talleres");
+  revalidatePath("/registro");
+}
+
+export async function eliminarTallerAdmin(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const tallerId = String(formData.get("tallerId") ?? "");
+  const idResult = idSchema.safeParse(tallerId);
+  if (!idResult.success) throw new Error("ID de taller invalido.");
+  const taller = await prisma.taller.findUnique({
+    where: { id: tallerId },
+    select: { _count: { select: { usuarios: true, invitados: true } } },
+  });
+  if (!taller) throw new Error("Taller no encontrado.");
+  if (taller._count.usuarios || taller._count.invitados) {
+    await prisma.taller.update({ where: { id: tallerId }, data: { activo: false } });
+  } else {
+    await prisma.taller.delete({ where: { id: tallerId } });
+  }
+  revalidatePath("/admin/talleres");
+  revalidatePath("/registro");
+}

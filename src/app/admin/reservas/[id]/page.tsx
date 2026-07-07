@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,7 +41,7 @@ const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
 const estadoLabel: Record<EstadoReserva, string> = {
   PAGO_PENDIENTE: "Aporte pendiente",
   PARCIAL: "Aporte parcial",
-  ASISTIO: "Asistió",
+  ASISTIO: "AsistiÃ³",
   CANCELADO: "Cancelado",
 };
 
@@ -54,7 +54,7 @@ const invitadoEstadoVariant: Record<EstadoInvitado, BadgeVariant> = {
 const invitadoEstadoLabel: Record<EstadoInvitado, string> = {
   PENDIENTE_PAGO: "Pendiente",
   PAGADO: "Pagado",
-  ASISTIO: "Asistió",
+  ASISTIO: "AsistiÃ³",
 };
 
 function formatCOP(value: number) {
@@ -62,7 +62,7 @@ function formatCOP(value: number) {
 }
 
 function formatDateTime(d: Date | null) {
-  if (!d) return "—";
+  if (!d) return "â€”";
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -105,9 +105,6 @@ export default async function AdminReservaDetalle({
     `Hola ${reserva.user.nombreCompleto.split(" ")[0]}, te escribo de Cumbre Impacto.`
   );
 
-  const invitadosPendientes = reserva.invitados.filter(
-    (i) => i.estado === EstadoInvitado.PENDIENTE_PAGO
-  );
   const invitadosPagados = reserva.invitados.filter(
     (i) => i.estado === EstadoInvitado.PAGADO
   );
@@ -128,6 +125,10 @@ export default async function AdminReservaDetalle({
     (i) => i.mesaId && i.silla
   );
   const invitadosOperativos = invitadosPagados.length + invitadosAsistieron.length;
+  const totalAportado = reserva.pagos
+    .filter((p) => !p.revertido)
+    .reduce((acc, pago) => acc + pago.monto, 0);
+  const saldoPendiente = Math.max(reserva.valorTotal - totalAportado, 0);
 
   const estadoDisplay =
     reserva.estado === EstadoReserva.PARCIAL
@@ -188,7 +189,7 @@ export default async function AdminReservaDetalle({
             </a>
             <div className="pt-3 mt-3 border-t border-taller-iron">
               <p className="text-ash text-sm uppercase tracking-widest font-subhead mb-2">
-                Contraseña
+                ContraseÃ±a
               </p>
               <ResetPwdButton
                 userId={reserva.user.id}
@@ -245,8 +246,18 @@ export default async function AdminReservaDetalle({
               {formatCOP(reserva.valorTotal)}
             </p>
             <p className="text-ash text-sm">
-              {formatCOP(config.precioPorPersona)} c/u · esperado máximo
+              {formatCOP(config.precioPorPersona)} c/u Â· esperado mÃ¡ximo
             </p>
+            <div className="pt-2 mt-2 border-t border-taller-iron text-base">
+              <div className="flex items-baseline justify-between text-ash">
+                <span>Abonado</span>
+                <span className="text-bone">{formatCOP(totalAportado)}</span>
+              </div>
+              <div className="flex items-baseline justify-between text-ash">
+                <span>Saldo</span>
+                <span className="text-ember-bright">{formatCOP(saldoPendiente)}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -411,20 +422,19 @@ export default async function AdminReservaDetalle({
           </Card>
         ) : estadoActivo ? (
           <>
-            {invitadosPendientes.length > 0 && (
+            {saldoPendiente > 0 && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base md:text-lg">
-                    Confirmar aporte de participantes
+                    Registrar aporte o abono
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <MarcarPagadoForm
-                    invitadosPendientes={invitadosPendientes.map((i) => ({
-                      id: i.id,
-                      nombreCompleto: i.nombreCompleto,
-                      telefono: i.telefono,
-                    }))}
+                    reservaId={reserva.id}
+                    valorTotal={reserva.valorTotal}
+                    totalPagado={totalAportado}
+                    saldoPendiente={saldoPendiente}
                   />
                 </CardContent>
               </Card>
@@ -480,17 +490,17 @@ export default async function AdminReservaDetalle({
       <Card className="mt-4 md:mt-6">
         <CardHeader>
           <CardTitle className="text-sm md:text-base uppercase tracking-widest text-ash">
-            Auditoría
+            AuditorÃ­a
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-0.5 text-sm md:text-base text-ash">
           <p>Creada: {formatDateTime(reserva.creadaEn)}</p>
-          <p>Última act: {formatDateTime(reserva.actualizadaEn)}</p>
+          <p>Ãšltima act: {formatDateTime(reserva.actualizadaEn)}</p>
           {reserva.confirmadaEn && (
             <p>Confirmada: {formatDateTime(reserva.confirmadaEn)}</p>
           )}
           {reserva.asistioEn && (
-            <p>Asistió: {formatDateTime(reserva.asistioEn)}</p>
+            <p>AsistiÃ³: {formatDateTime(reserva.asistioEn)}</p>
           )}
         </CardContent>
       </Card>

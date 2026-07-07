@@ -13,7 +13,7 @@ import { EVENT_DATE, EVENT_BARRIO } from "@/lib/constants";
  *
  *   t=0.0s  Section visible, foto del taller como background (position 30% center)
  *   t=0.3s  "Bienvenido a" label hace fade-up
- *   t=0.5s  "BAJO EL" + Wrench + "CAPÓ" (todo el h1) fade-up
+ *   t=0.5s  "CUMBRE" + Wrench + "IMPACTOPÓ" (todo el h1) fade-up
  *   t=0.7s  Divider horizontal scaleX desde la derecha
  *   t=0.9s  Subtitulo "Lo que ningún hombre..." fade-up
  *   t=1.1s  Tagline con "hablar de lo que callamos" en cursiva fade-up
@@ -103,9 +103,9 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
             Bienvenido a
           </p>
 
-          {/* Titulo: BAJO EL + CAPO, libre, sin placa.
-              Mobile: BAJO EL mas pequeno (text-2xl), CAPO en text-6xl (60px).
-              Desktop: BAJO EL text-5xl, CAPO text-8xl/9xl.
+          {/* Titulo: CUMBRE + IMPACTOPO, libre, sin placa.
+              Mobile: CUMBRE mas pequeno (text-2xl), IMPACTOPO en text-6xl (60px).
+              Desktop: CUMBRE text-5xl, IMPACTOPO text-8xl/9xl.
               w-full en el primer span para que el flex centering funcione. */}
           <h1
             data-anim
@@ -117,10 +117,10 @@ export function HeroReveal({ ctaHref = "/reservar" }: { ctaHref?: string }) {
                 className="h-6 w-6 sm:h-7 sm:w-7 md:h-9 md:w-9 text-ember-bright shrink-0"
                 strokeWidth={2}
               />
-              <span>BAJO EL</span>
+              <span>CUMBRE</span>
             </span>
             <span className="block text-6xl sm:text-7xl md:text-8xl lg:text-9xl text-ember-bright mt-1 md:mt-2">
-              CAPÓ
+              IMPACTOPÓ
             </span>
           </h1>
 

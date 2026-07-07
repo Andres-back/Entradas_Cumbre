@@ -2,6 +2,7 @@
 
 import { EstadoReserva, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { getConfiguracion } from "@/lib/constants";
@@ -9,10 +10,7 @@ import { getConfiguracion } from "@/lib/constants";
 export type ReservarState = {
   error: string | null;
   success?: boolean;
-  fieldErrors?: {
-    cantidad?: string;
-    invitados?: string;
-  };
+  fieldErrors?: { cantidad?: string; invitados?: string };
   reservaData?: {
     cantidad: number;
     invitados: { nombreCompleto: string; telefono: string }[];
@@ -29,24 +27,50 @@ export async function crearOActualizarReserva(
   void _formData;
 
   const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Debes iniciar sesión para reservar." };
-  }
+  if (!session?.user?.id) return { error: "Debes iniciar sesion para reservar." };
 
   const config = await getConfiguracion();
   const valorTotal = config.precioPorPersona;
 
   const titular = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { nombreCompleto: true, telefono: true },
+    select: {
+      nombreCompleto: true,
+      email: true,
+      telefono: true,
+      documento: true,
+      fechaNacimiento: true,
+      iglesia: true,
+      departamento: true,
+      ciudad: true,
+      rolPic: true,
+      contactoEmergenciaNombre: true,
+      contactoEmergenciaTelefono: true,
+      aprobacionPastor: true,
+      tallerId: true,
+    },
   });
 
-  if (!titular?.nombreCompleto || !titular.telefono) {
-    return {
-      error:
-        "Tu usuario no tiene nombre o celular completo. Actualiza tus datos antes de inscribirte.",
-    };
+  if (
+    !titular?.nombreCompleto ||
+    !titular.telefono ||
+    !titular.iglesia ||
+    !titular.departamento ||
+    !titular.ciudad ||
+    !titular.rolPic ||
+    !titular.contactoEmergenciaNombre ||
+    !titular.contactoEmergenciaTelefono ||
+    !titular.aprobacionPastor ||
+    !titular.tallerId
+  ) {
+    return { error: "Tu perfil no esta completo. Registra todos tus datos antes de inscribirte." };
   }
+
+  const taller = await prisma.taller.findUnique({
+    where: { id: titular.tallerId },
+    select: { activo: true, cupo: true },
+  });
+  if (!taller?.activo) return { error: "El taller seleccionado ya no esta disponible." };
 
   const reservaPrevia = await prisma.reserva.findUnique({
     where: { userId: session.user.id },
@@ -58,14 +82,36 @@ export async function crearOActualizarReserva(
     (reservaPrevia.estado === EstadoReserva.PARCIAL ||
       reservaPrevia.estado === EstadoReserva.ASISTIO)
   ) {
-    return { error: "No puedes modificar una inscripción con aporte ya registrado." };
+    return { error: "No puedes modificar una inscripcion con aporte ya registrado." };
   }
 
-  const reservaActiva =
-    !!reservaPrevia && reservaPrevia.estado !== EstadoReserva.CANCELADO;
+  const reservaActiva = !!reservaPrevia && reservaPrevia.estado !== EstadoReserva.CANCELADO;
 
   try {
     await prisma.$transaction(async (tx) => {
+      if (taller.cupo !== null) {
+        const inscritos = await tx.user.count({ where: { tallerId: titular.tallerId } });
+        if (inscritos > taller.cupo) throw new Error("TALLER_SIN_CUPO");
+      }
+
+      const participanteData = {
+        numero: 1,
+        nombreCompleto: titular.nombreCompleto,
+        telefono: titular.telefono,
+        emailContacto: titular.email,
+        documento: titular.documento,
+        fechaNacimiento: titular.fechaNacimiento,
+        iglesia: titular.iglesia,
+        departamento: titular.departamento,
+        ciudad: titular.ciudad,
+        rolPic: titular.rolPic,
+        contactoEmergenciaNombre: titular.contactoEmergenciaNombre,
+        contactoEmergenciaTelefono: titular.contactoEmergenciaTelefono,
+        aprobacionPastor: titular.aprobacionPastor,
+        tallerId: titular.tallerId,
+        estado: "PENDIENTE_PAGO" as const,
+      };
+
       if (reservaPrevia) {
         await tx.invitado.deleteMany({ where: { reservaId: reservaPrevia.id } });
         await tx.reserva.update({
@@ -77,36 +123,22 @@ export async function crearOActualizarReserva(
             canceladaEn: null,
           },
         });
-        await tx.invitado.create({
-          data: {
-            reservaId: reservaPrevia.id,
-            numero: 1,
-            nombreCompleto: titular.nombreCompleto,
-            telefono: titular.telefono,
-            estado: "PENDIENTE_PAGO",
-          },
-        });
+        await tx.invitado.create({ data: { reservaId: reservaPrevia.id, ...participanteData } });
       } else {
         await tx.reserva.create({
           data: {
             userId: session.user.id,
             valorTotal,
             estado: EstadoReserva.PAGO_PENDIENTE,
-            invitados: {
-              create: {
-                numero: 1,
-                nombreCompleto: titular.nombreCompleto,
-                telefono: titular.telefono,
-                estado: "PENDIENTE_PAGO",
-              },
-            },
+            invitados: { create: participanteData },
           },
         });
       }
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "TALLER_SIN_CUPO") return { error: "El taller seleccionado ya no tiene cupos." };
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { error: "Ya tienes una inscripción activa. Refresca la página." };
+      return { error: "Ya tienes una inscripcion activa. Refresca la pagina." };
     }
     throw err;
   }
@@ -118,12 +150,7 @@ export async function crearOActualizarReserva(
   return {
     error: null,
     success: true,
-    reservaData: {
-      cantidad: 1,
-      invitados: [],
-      valorTotal,
-      editingExisting: reservaActiva,
-    },
+    reservaData: { cantidad: 1, invitados: [], valorTotal, editingExisting: reservaActiva },
   };
 }
 
@@ -138,68 +165,37 @@ export async function cancelarMiReserva(
   formData: FormData
 ): Promise<CancelarMiReservaState> {
   const session = await auth();
-  if (!session?.user?.id) {
-    return { error: "Debes iniciar sesión." };
-  }
+  if (!session?.user?.id) return { error: "Debes iniciar sesion." };
 
   const motivo = String(formData.get("motivo") ?? "").trim();
-  if (motivo.length < 5) {
-    return {
-      error: "Cuéntanos por qué cancelas.",
-      fieldErrors: { motivo: "Mínimo 5 caracteres" },
-    };
-  }
-  if (motivo.length > 500) {
-    return {
-      error: "Motivo demasiado largo.",
-      fieldErrors: { motivo: "Máximo 500 caracteres" },
-    };
-  }
+  if (motivo.length < 5) return { error: "Cuentanos por que cancelas.", fieldErrors: { motivo: "Minimo 5 caracteres" } };
+  if (motivo.length > 500) return { error: "Motivo demasiado largo.", fieldErrors: { motivo: "Maximo 500 caracteres" } };
 
   try {
     await prisma.$transaction(async (tx) => {
       const r = await tx.reserva.findUnique({
         where: { userId: session.user.id },
-        select: {
-          id: true,
-          estado: true,
-          invitados: { select: { estado: true } },
-        },
+        select: { id: true, estado: true, invitados: { select: { estado: true } } },
       });
-
       if (!r) throw new Error("NO_HAY_RESERVA");
-      const algunoPagado = r.invitados.some(
-        (i) => i.estado === "PAGADO" || i.estado === "ASISTIO"
-      );
-      if (algunoPagado) throw new Error("YA_PAGARON");
+      if (r.invitados.some((i) => i.estado === "PAGADO" || i.estado === "ASISTIO")) throw new Error("YA_PAGARON");
       if (r.estado !== EstadoReserva.PAGO_PENDIENTE) throw new Error("ESTADO_INVALIDO");
-
       await tx.reserva.update({
         where: { id: r.id },
-        data: {
-          estado: EstadoReserva.CANCELADO,
-          motivoCancelacion: motivo,
-          canceladaEn: new Date(),
-        },
+        data: { estado: EstadoReserva.CANCELADO, motivoCancelacion: motivo, canceladaEn: new Date() },
       });
     });
   } catch (err) {
     if (err instanceof Error) {
-      if (err.message === "NO_HAY_RESERVA") return { error: "No tienes una inscripción activa." };
-      if (err.message === "YA_PAGARON") {
-        return {
-          error:
-            "No puedes cancelar en este estado: el aporte ya fue confirmado. Escribe al admin por WhatsApp para coordinar.",
-        };
-      }
-      if (err.message === "ESTADO_INVALIDO") return { error: "La inscripción no se puede cancelar en este estado." };
+      if (err.message === "NO_HAY_RESERVA") return { error: "No tienes una inscripcion activa." };
+      if (err.message === "YA_PAGARON") return { error: "No puedes cancelar porque el aporte ya fue confirmado." };
+      if (err.message === "ESTADO_INVALIDO") return { error: "La inscripcion no se puede cancelar en este estado." };
     }
     throw err;
   }
 
   revalidatePath("/mi-reserva");
   revalidatePath("/admin/reservas");
-
   return { error: null, success: true };
 }
 
@@ -209,7 +205,7 @@ export type CancelarInvitadoState = {
 };
 
 export async function cancelarInvitado(): Promise<CancelarInvitadoState> {
-  return { error: "Esta inscripción es individual. No hay invitados para quitar." };
+  return { error: "Esta inscripcion es individual. No hay participantes adicionales para quitar." };
 }
 
 export type AgregarInvitadosState = {
@@ -219,5 +215,5 @@ export type AgregarInvitadosState = {
 };
 
 export async function agregarInvitadosReserva(): Promise<AgregarInvitadosState> {
-  return { error: "Cada persona debe registrarse con su propia inscripción." };
+  return { error: "Cada persona debe registrarse con su propia inscripcion." };
 }
