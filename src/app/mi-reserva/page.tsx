@@ -50,7 +50,7 @@ export default async function MiReservaPage() {
   const reserva = await prisma.reserva.findUnique({
     where: { userId: session.user.id },
     include: {
-      user: true,
+      user: { include: { taller: true } },
       pagos: { where: { revertido: false }, select: { monto: true } },
       invitados: {
         orderBy: { numero: "asc" },
@@ -115,6 +115,11 @@ export default async function MiReservaPage() {
                 ? "Tu ticket ya está listo. Descárgalo y úsalo para ingresar."
                 : "Coordina el aporte para activar tu ticket."}
             </p>
+            {reserva.user.taller && (
+              <p className="text-ash text-xs mt-2 md:mt-3">
+                Taller seleccionado: <span className="text-bone font-subhead">{reserva.user.taller.nombre}</span>
+              </p>
+            )}
           </header>
 
           {!isCancelado && (

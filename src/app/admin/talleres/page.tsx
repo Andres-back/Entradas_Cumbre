@@ -10,7 +10,7 @@ export const metadata = { title: "Talleres | Admin" };
 export default async function AdminTalleresPage() {
   const talleres = await prisma.taller.findMany({
     orderBy: [{ orden: "asc" }, { nombre: "asc" }],
-    include: { _count: { select: { usuarios: true, invitados: true } } },
+    include: { _count: { select: { usuarios: true } } },
   });
 
   return (
@@ -29,7 +29,7 @@ export default async function AdminTalleresPage() {
         </Card>
         <div className="space-y-3">
           {talleres.map((taller) => {
-            const asignados = Math.max(taller._count.usuarios, taller._count.invitados);
+            const asignados = taller._count.usuarios;
             return (
               <Card key={taller.id}>
                 <CardContent className="pt-5">

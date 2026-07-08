@@ -97,7 +97,7 @@ export function LoginForm({ next }: { next?: string }) {
         </p>
       )}
       <Button type="submit" size="lg" className="w-full">
-        Entrar al taller
+        Acceder al panel
       </Button>
     </form>
   );

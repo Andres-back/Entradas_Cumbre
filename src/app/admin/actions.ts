@@ -1764,6 +1764,204 @@ export async function registrarAbonoReserva(
   };
 }
 
+export async function marcarPagadoCompleto(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  const session = await requireAdmin();
+  const adminId = session.user.id;
+  const reservaId = String(formData.get("reservaId") ?? "");
+  const medio = String(formData.get("medio") ?? "");
+  const referencia = String(formData.get("referencia") || "") || null;
+  const notasInternas = String(formData.get("notas") || formData.get("notasInternas") || "") || null;
+
+  if (!reservaId) return { error: "ID de reserva requerido." };
+  if (!medio) return { error: "Selecciona un medio de pago." };
+
+  const mediosValidos = ["NEQUI", "BANCOLOMBIA", "DAVIPLATA", "EFECTIVO"];
+  if (!mediosValidos.includes(medio)) return { error: "Medio de pago invalido." };
+
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      const reserva = await tx.reserva.findUnique({
+        where: { id: reservaId },
+        include: {
+          invitados: { orderBy: { numero: "asc" } },
+          pagos: { where: { revertido: false }, select: { monto: true } },
+        },
+      });
+      if (!reserva) throw new Error("RESERVA_NO_EXISTE");
+      if (reserva.estado === EstadoReserva.CANCELADO) throw new Error("RESERVA_CANCELADA");
+      if (reserva.estado === EstadoReserva.ASISTIO) throw new Error("YA_ASISTIO");
+
+      const totalPagado = reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+      const saldo = Math.max(reserva.valorTotal - totalPagado, 0);
+      if (saldo <= 0) throw new Error("SIN_SALDO");
+
+      const pendientes = reserva.invitados.filter((inv) => inv.estado === EstadoInvitado.PENDIENTE_PAGO);
+      const codigos: string[] = [];
+
+      for (const inv of pendientes) {
+        let code: string | null = null;
+        for (let attempts = 0; attempts < 5; attempts++) {
+          const candidate = generateEntradaCode();
+          try {
+            await tx.invitado.update({
+              where: { id: inv.id, estado: EstadoInvitado.PENDIENTE_PAGO },
+              data: {
+                estado: EstadoInvitado.PAGADO,
+                codigo: candidate,
+                adminIdPago: adminId,
+                fechaPago: new Date(),
+              },
+            });
+            code = candidate;
+            break;
+          } catch (err) {
+            if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
+            throw err;
+          }
+        }
+        if (!code) throw new Error("NO_SE_PUDO_GENERAR_CODIGO");
+        codigos.push(code);
+      }
+
+      await tx.pago.create({
+        data: {
+          reservaId,
+          medio: medio as MedioPago,
+          referencia,
+          notasInternas,
+          monto: saldo,
+          adminId,
+          invitadosCubiertos: pendientes.map((inv) => inv.id),
+        },
+      });
+
+      await tx.reserva.update({
+        where: { id: reservaId },
+        data: {
+          estado: EstadoReserva.PARCIAL,
+          confirmadaEn: new Date(),
+        },
+      });
+
+      return { codigo: codigos[0] ?? null };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "RESERVA_NO_EXISTE") return { error: "Reserva no encontrada." };
+      if (err.message === "RESERVA_CANCELADA") return { error: "La reserva fue cancelada." };
+      if (err.message === "YA_ASISTIO") return { error: "La persona ya asistio al evento." };
+      if (err.message === "SIN_SALDO") return { error: "La inscripcion ya esta pagada." };
+      if (err.message === "NO_SE_PUDO_GENERAR_CODIGO") return { error: "No se pudo generar codigo unico." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/reservas");
+  revalidatePath(`/admin/reservas/${reservaId}`);
+  revalidatePath("/admin/pagos");
+  revalidatePath("/admin");
+  revalidatePath("/admin/mesas");
+  revalidatePath("/mi-reserva");
+  return {
+    error: null,
+    success: true,
+    message: "Aporte completado. Codigo de entrada habilitado.",
+    codigo: result.codigo,
+  };
+}
+
+export async function anularPago(
+  _prev: AdminActionResult,
+  formData: FormData
+): Promise<AdminActionResult> {
+  await requireAdmin();
+  const pagoId = String(formData.get("pagoId") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+
+  if (!pagoId) return { error: "ID de pago requerido." };
+  if (motivo.length < 5) return { error: "Explica el motivo de la anulacion (min. 5 caracteres)." };
+  if (motivo.length > 500) return { error: "Motivo demasiado largo." };
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const pago = await tx.pago.findUnique({
+        where: { id: pagoId },
+        include: {
+          reserva: {
+            include: {
+              invitados: { orderBy: { numero: "asc" } },
+              pagos: { where: { revertido: false }, select: { id: true, monto: true } },
+            },
+          },
+        },
+      });
+      if (!pago) throw new Error("PAGO_NO_EXISTE");
+      if (pago.revertido) throw new Error("YA_ANULADO");
+      if (pago.reserva.estado === EstadoReserva.CANCELADO) throw new Error("RESERVA_CANCELADA");
+      if (pago.reserva.estado === EstadoReserva.ASISTIO) throw new Error("RESERVA_ASISTIO");
+
+      await tx.pago.update({
+        where: { id: pagoId },
+        data: {
+          revertido: true,
+          revertidoEn: new Date(),
+          motivoReversion: motivo,
+        },
+      });
+
+      const totalRestante = pago.reserva.pagos
+        .filter((p) => p.id !== pagoId)
+        .reduce((acc, p) => acc + p.monto, 0);
+
+      const nuevoEstado = totalRestante <= 0
+        ? EstadoReserva.PAGO_PENDIENTE
+        : EstadoReserva.PARCIAL;
+
+      const updateData: Record<string, unknown> = { estado: nuevoEstado };
+      if (nuevoEstado === EstadoReserva.PAGO_PENDIENTE) {
+        updateData.confirmadaEn = null;
+      }
+      await tx.reserva.update({
+        where: { id: pago.reservaId },
+        data: updateData as Prisma.ReservaUpdateInput,
+      });
+
+      if (nuevoEstado === EstadoReserva.PAGO_PENDIENTE) {
+        for (const inv of pago.reserva.invitados) {
+          if (inv.estado === EstadoInvitado.PAGADO) {
+            await tx.invitado.update({
+              where: { id: inv.id },
+              data: {
+                estado: EstadoInvitado.PENDIENTE_PAGO,
+                codigo: null,
+                adminIdPago: null,
+                fechaPago: null,
+              },
+            });
+          }
+        }
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === "PAGO_NO_EXISTE") return { error: "Pago no encontrado." };
+      if (err.message === "YA_ANULADO") return { error: "Este pago ya fue anulado." };
+      if (err.message === "RESERVA_CANCELADA") return { error: "No se puede anular un pago de una reserva cancelada." };
+      if (err.message === "RESERVA_ASISTIO") return { error: "No se puede anular un pago de una persona que ya asisitio." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/reservas");
+  revalidatePath(`/admin/pagos`);
+  revalidatePath("/admin");
+  return { error: null, success: true, message: "Pago anulado correctamente." };
+}
+
 const tallerAdminSchema = z.object({
   nombre: z.string().trim().min(3).max(100),
   descripcion: z.string().trim().max(500).optional().nullable(),
@@ -1827,10 +2025,10 @@ export async function eliminarTallerAdmin(formData: FormData): Promise<void> {
   if (!idResult.success) throw new Error("ID de taller invalido.");
   const taller = await prisma.taller.findUnique({
     where: { id: tallerId },
-    select: { _count: { select: { usuarios: true, invitados: true } } },
+    select: { _count: { select: { usuarios: true } } },
   });
   if (!taller) throw new Error("Taller no encontrado.");
-  if (taller._count.usuarios || taller._count.invitados) {
+  if (taller._count.usuarios > 0) {
     await prisma.taller.update({ where: { id: tallerId }, data: { activo: false } });
   } else {
     await prisma.taller.delete({ where: { id: tallerId } });

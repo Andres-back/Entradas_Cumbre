@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +75,7 @@ export default async function AdminReservaDetalle({
   const reserva = await prisma.reserva.findUnique({
     where: { id },
     include: {
-      user: true,
+      user: { include: { taller: true } },
       pagos: { orderBy: { registradoEn: "desc" } },
       invitados: {
         orderBy: { numero: "asc" },
@@ -420,6 +420,8 @@ export default async function AdminReservaDetalle({
                     valorTotal={reserva.valorTotal}
                     totalPagado={totalAportado}
                     saldoPendiente={saldoPendiente}
+                    nombrePersona={reserva.user.nombreCompleto}
+                    nombreTaller={reserva.user.taller?.nombre ?? null}
                   />
                 </CardContent>
               </Card>

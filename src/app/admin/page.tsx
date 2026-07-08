@@ -5,12 +5,15 @@ import { ADMIN_NAME } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber } from "@/components/ui/animated-number";
-import { reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
+import { reservaEstadoLabel, reservaEstadoVariant, calcularEstadoPago } from "@/lib/payment-status";
 import {
   ArrowRight,
   Users,
-  CheckCircle2,
   Wallet,
+  CreditCard,
+  Clock,
+  XCircle,
+  CheckCircle2,
 
 } from "lucide-react";
 import { EstadoReserva } from "@prisma/client";
@@ -38,7 +41,7 @@ export default async function AdminDashboard() {
       select: {
         estado: true,
         valorTotal: true,
-        invitados: { select: { id: true } },
+        invitados: { select: { id: true, registradoEn: true } },
         pagos: { where: { revertido: false }, select: { monto: true } },
       },
     }),
@@ -62,14 +65,23 @@ export default async function AdminDashboard() {
     (acc, r) => acc + r.invitados.length,
     0
   );
-  // "Confirmadas" = inscripciones con aporte confirmado o asistencia.
-  const confirmadas = todas.filter(
-    (r) => r.estado === EstadoReserva.PARCIAL || r.estado === EstadoReserva.ASISTIO
-  );
-  const totalConfirmados = confirmadas.reduce(
-    (acc, r) => acc + r.invitados.length,
-    0
-  );
+
+  const sinPago = todas.filter(
+    (r) => calcularEstadoPago(r.valorTotal, r.pagos) === "SIN_PAGO"
+  ).length;
+
+  const parcial = todas.filter(
+    (r) => calcularEstadoPago(r.valorTotal, r.pagos) === "PARCIAL"
+  ).length;
+
+  const pagado = todas.filter(
+    (r) => calcularEstadoPago(r.valorTotal, r.pagos) === "PAGADO"
+  ).length;
+
+  const asistieron = todas.filter(
+    (r) => r.estado === EstadoReserva.ASISTIO || r.invitados.some((i) => i.registradoEn !== null)
+  ).length;
+
   const totalRecaudado = await prisma.pago
     .aggregate({
       where: { revertido: false },
@@ -111,25 +123,43 @@ export default async function AdminDashboard() {
             Hola, {session.user.name ?? ADMIN_NAME}
           </h1>
           <p className="text-bone text-lg mt-1">
-            Resumen del taller en tiempo real.
+            Resumen del evento en tiempo real.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8 stagger-children">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8 stagger-children">
         <MetricCard
           icon={Users}
-          label="Reservas"
+          label="Inscritos"
           value={totalReservas}
           numeric
           sub={`${totalAsistentes} asistentes`}
         />
         <MetricCard
-          icon={CheckCircle2}
-          label="Confirmadas"
-          value={totalConfirmados}
+          icon={XCircle}
+          label="Sin pago"
+          value={sinPago}
           numeric
-          sub={`${confirmadas.length} reservas`}
+          variant="warning"
+        />
+        <MetricCard
+          icon={Clock}
+          label="Abono parcial"
+          value={parcial}
+          numeric
+        />
+        <MetricCard
+          icon={CreditCard}
+          label="Pagado"
+          value={pagado}
+          numeric
+        />
+        <MetricCard
+          icon={CheckCircle2}
+          label="Asistieron"
+          value={asistieron}
+          numeric
         />
         <MetricCard
           icon={Wallet}
