@@ -36,7 +36,7 @@ export function AdminShell({
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-1 flex-col md:flex-row">
+    <div className="flex flex-1 flex-col md:flex-row pt-16">
       {/* Sidebar desktop */}
       <aside className="hidden md:flex w-60 shrink-0 flex-col border-r border-taller-iron bg-taller-night">
         <div className="p-6 border-b border-taller-iron">
