@@ -60,7 +60,6 @@ export async function crearOActualizarReserva(
     !titular.rolPic ||
     !titular.contactoEmergenciaNombre ||
     !titular.contactoEmergenciaTelefono ||
-    !titular.aprobacionPastor ||
     !titular.tallerId
   ) {
     return { error: "Tu perfil no esta completo. Registra todos tus datos antes de inscribirte." };
@@ -90,8 +89,14 @@ export async function crearOActualizarReserva(
   try {
     await prisma.$transaction(async (tx) => {
       if (taller.cupo !== null) {
-        const inscritos = await tx.user.count({ where: { tallerId: titular.tallerId } });
-        if (inscritos > taller.cupo) throw new Error("TALLER_SIN_CUPO");
+        const inscritos = await tx.reserva.count({
+          where: {
+            estado: { not: EstadoReserva.CANCELADO },
+            user: { tallerId: titular.tallerId },
+            ...(reservaPrevia ? { id: { not: reservaPrevia.id } } : {}),
+          },
+        });
+        if (inscritos >= taller.cupo) throw new Error("TALLER_SIN_CUPO");
       }
 
       const participanteData = {
@@ -134,7 +139,7 @@ export async function crearOActualizarReserva(
           },
         });
       }
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
     if (err instanceof Error && err.message === "TALLER_SIN_CUPO") return { error: "El taller seleccionado ya no tiene cupos." };
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {

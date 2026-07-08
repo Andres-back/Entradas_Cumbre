@@ -9,35 +9,37 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { ROL_PIC_OPTIONS } from "@/lib/pic";
+import { normalizePhoneE164 } from "@/lib/whatsapp";
 
 const phoneSchema = z
   .string()
-  .transform((v) => v.replace(/\D/g, ""))
-  .pipe(z.string().regex(/^\d{10}$/, "Celular colombiano: 10 digitos"))
-  .transform((digits) => `+57${digits}`);
+  .trim()
+  .transform((v) => normalizePhoneE164(v))
+  .pipe(z.string().min(1, "Telefono invalido: usa entre 7 y 15 digitos"));
 
 const optionalDateSchema = z
   .string()
   .trim()
   .optional()
   .transform((v) => (v ? new Date(`${v}T00:00:00-05:00`) : null))
-  .refine((v) => !v || !Number.isNaN(v.getTime()), "Fecha invalida");
+  .refine((v) => !v || !Number.isNaN(v.getTime()), "Fecha invalida")
+  .refine((v) => !v || v <= new Date(), "La fecha no puede ser futura");
 
 const registroSchema = z.object({
-  nombreCompleto: z.string().min(3, "Minimo 3 caracteres").max(80),
-  email: z.string().email("Email invalido").toLowerCase(),
+  nombreCompleto: z.string().trim().min(3, "Minimo 3 caracteres").max(120),
+  email: z.string().trim().email("Email invalido").toLowerCase(),
   telefono: phoneSchema,
   password: z.string().min(8, "Minimo 8 caracteres").max(72),
-  documento: z.string().trim().max(30).optional(),
+  documento: z.string().trim().regex(/^[A-Za-z0-9-]*$/, "Solo letras, numeros y guiones").max(30).optional(),
   fechaNacimiento: optionalDateSchema,
-  iglesia: z.string().trim().min(2, "Indica tu iglesia").max(120),
-  departamento: z.string().trim().min(2, "Indica tu departamento").max(80),
-  ciudad: z.string().trim().min(2, "Indica tu ciudad").max(80),
+  iglesia: z.string().trim().min(2, "Indica tu iglesia").max(150),
+  departamento: z.string().trim().min(2, "Indica tu departamento").max(100),
+  ciudad: z.string().trim().min(2, "Indica tu ciudad").max(100),
   rolPic: z.enum(ROL_PIC_OPTIONS, { message: "Selecciona tu rol" }),
-  contactoEmergenciaNombre: z.string().trim().min(3).max(80),
+  contactoEmergenciaNombre: z.string().trim().min(3).max(120),
   contactoEmergenciaTelefono: phoneSchema,
   tallerId: z.string().min(1, "Selecciona un taller"),
-  aprobacionPastor: z.boolean().refine(Boolean, "Confirma la aprobacion pastoral"),
+  aprobacionPastor: z.boolean(),
 });
 
 export type RegistroState = {

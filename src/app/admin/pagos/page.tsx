@@ -1,26 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Wallet, CheckCircle2, AlertCircle } from "lucide-react";
 import { EstadoReserva } from "@prisma/client";
+import { paymentProgress, reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
 
 export const metadata = {
   title: "Aportes | Admin",
-};
-
-const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
-  PAGO_PENDIENTE: "pending",
-  PARCIAL: "paid",
-  ASISTIO: "success",
-  CANCELADO: "cancelled",
-};
-
-const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Aporte pendiente",
-  PARCIAL: "Aporte parcial",
-  ASISTIO: "Asistió",
-  CANCELADO: "Cancelado",
 };
 
 function formatCOP(value: number) {
@@ -41,7 +28,10 @@ export default async function AdminAportesPage() {
       orderBy: { registradoEn: "desc" },
       include: {
         reserva: {
-          include: { user: { select: { nombreCompleto: true, telefono: true } } },
+          include: {
+            user: { select: { nombreCompleto: true, telefono: true } },
+            pagos: { where: { revertido: false }, select: { monto: true } },
+          },
         },
       },
     }),
@@ -51,13 +41,20 @@ export default async function AdminAportesPage() {
       _count: true,
     }),
     prisma.reserva.findMany({
-      where: { estado: { in: [EstadoReserva.PAGO_PENDIENTE] } },
+      where: { estado: { notIn: [EstadoReserva.CANCELADO, EstadoReserva.ASISTIO] } },
       orderBy: { creadaEn: "asc" },
-      include: { user: { select: { nombreCompleto: true, telefono: true } } },
+      include: {
+        user: { select: { nombreCompleto: true, telefono: true } },
+        pagos: { where: { revertido: false }, select: { monto: true } },
+      },
     }),
   ]);
 
   const totalRecaudado = pendientes._sum.monto ?? 0;
+  const reservasConSaldo = reservaPendientes.filter((reserva) => {
+    const totalAportado = reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+    return paymentProgress(reserva.valorTotal, totalAportado).saldoPendiente > 0;
+  });
 
   return (
     <main className="px-4 py-8 md:px-8">
@@ -114,7 +111,7 @@ export default async function AdminAportesPage() {
                   Por confirmar
                 </p>
                 <p className="font-display text-2xl text-cream">
-                  {reservaPendientes.length}
+                  {reservasConSaldo.length}
                 </p>
               </div>
             </div>
@@ -123,7 +120,7 @@ export default async function AdminAportesPage() {
       </div>
 
       {/* Reservas pendientes de aporte */}
-      {reservaPendientes.length > 0 && (
+      {reservasConSaldo.length > 0 && (
         <Card className="mb-8 border-ember-rust/40">
           <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2">
@@ -133,18 +130,22 @@ export default async function AdminAportesPage() {
           </CardHeader>
           <CardContent>
             <ul className="divide-y divide-taller-iron">
-              {reservaPendientes.map((r) => (
+              {reservasConSaldo.map((r) => {
+                const totalAportado = r.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+                const saldo = paymentProgress(r.valorTotal, totalAportado).saldoPendiente;
+                return (
                 <li key={r.id} className="py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-bone font-subhead truncate">
                       {r.user.nombreCompleto}
                     </p>
                     <p className="text-ash text-base">
-                      {r.user.telefono} ·{" "}
-                      {formatCOP(r.valorTotal)}
+                      {r.user.telefono} · saldo {formatCOP(saldo)}
                     </p>
                   </div>
-                  <Badge variant="pending">Aporte pendiente</Badge>
+                  <Badge variant={totalAportado > 0 ? "paid" : "pending"}>
+                    {totalAportado > 0 ? "Aporte parcial" : "Aporte pendiente"}
+                  </Badge>
                   <Link
                     href={`/admin/reservas/${r.id}`}
                     className="text-ember-bright text-base uppercase tracking-wider font-subhead hover:underline"
@@ -152,7 +153,8 @@ export default async function AdminAportesPage() {
                     Gestionar
                   </Link>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
@@ -206,10 +208,18 @@ export default async function AdminAportesPage() {
                       <td className="py-3 px-4">
                         <Badge
                           variant={
-                            estadoVariant[p.reserva.estado] ?? "default"
+                            reservaEstadoVariant(
+                              p.reserva.estado,
+                              p.reserva.valorTotal,
+                              p.reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                            )
                           }
                         >
-                          {estadoLabel[p.reserva.estado]}
+                          {reservaEstadoLabel(
+                            p.reserva.estado,
+                            p.reserva.valorTotal,
+                            p.reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                          )}
                         </Badge>
                       </td>
                     </tr>
@@ -229,9 +239,17 @@ export default async function AdminAportesPage() {
                         {p.reserva.user.nombreCompleto}
                       </p>
                       <Badge
-                        variant={estadoVariant[p.reserva.estado] ?? "default"}
+                        variant={reservaEstadoVariant(
+                          p.reserva.estado,
+                          p.reserva.valorTotal,
+                          p.reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                        )}
                       >
-                        {estadoLabel[p.reserva.estado]}
+                        {reservaEstadoLabel(
+                          p.reserva.estado,
+                          p.reserva.valorTotal,
+                          p.reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                        )}
                       </Badge>
                     </div>
                     <p className="text-ash text-base">{p.medio} · Ref {p.referencia ?? "—"}</p>

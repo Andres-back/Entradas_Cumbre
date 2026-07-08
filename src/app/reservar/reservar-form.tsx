@@ -9,7 +9,7 @@ import { RpmLoader } from "@/components/brand/RpmLoader";
 import { Confetti } from "@/components/brand/Confetti";
 import { SuccessCheck } from "@/components/ui/success-check";
 import { cn } from "@/lib/utils";
-import { buildWhatsappConfirmacionUrl } from "@/lib/whatsapp";
+import { buildWhatsappSimpleUrl, whatsappTemplates } from "@/lib/whatsapp";
 import { Ticket } from "lucide-react";
 
 const initialState: ReservarState = { error: null, success: false };
@@ -23,11 +23,13 @@ export function ReservarForm({
   userNombre,
   userTelefono,
   precioPorPersona,
+  whatsappPagos,
 }: {
   prefill?: ReservaPrefill;
   userNombre: string;
   userTelefono: string;
   precioPorPersona: number;
+  whatsappPagos: string;
 }) {
   const [successData, setSuccessData] = useState<ReservarState["reservaData"] | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -52,6 +54,7 @@ export function ReservarForm({
         userTelefono={userTelefono}
         valorTotal={successData.valorTotal}
         editing={successData.editingExisting}
+        whatsappPagos={whatsappPagos}
       />
     );
   }
@@ -160,18 +163,20 @@ function ExitoReserva({
   userTelefono,
   valorTotal,
   editing,
+  whatsappPagos,
 }: {
   userNombre: string;
   userTelefono: string;
   valorTotal: number;
   editing: boolean;
+  whatsappPagos: string;
 }) {
-  const waUrl = buildWhatsappConfirmacionUrl({
+  const waUrl = buildWhatsappSimpleUrl(whatsappPagos, whatsappTemplates.confirmacionAporte({
     nombre: userNombre,
     telefono: userTelefono,
     invitados: [],
     valorTotal,
-  });
+  }));
 
   return (
     <>
@@ -211,14 +216,14 @@ function ExitoReserva({
         </div>
 
         <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
-          <a
+          {waUrl ? <a
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }), "animate-success-pulse")}
           >
-            {editing ? "Avisar al equipo organizador" : "Reportar aporte"}
-          </a>
+            {editing ? "Avisar al equipo organizador" : "Comunicarme con el administrador"}
+          </a> : <p className="rounded-md border border-ember-rust/40 p-3 text-sm text-ash">El numero de WhatsApp para pagos todavia no ha sido configurado.</p>}
           <a href="/mi-reserva" className={cn(buttonVariants({ variant: "secondary", size: "lg" }))}>
             Ver mi inscripción
           </a>

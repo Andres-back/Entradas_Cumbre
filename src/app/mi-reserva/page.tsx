@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { InvitadoTicketCard } from "@/components/brand/InvitadoTicketCard";
 import { SiteHeader } from "@/components/brand/SiteHeader";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { buildWhatsappConfirmacionUrl } from "@/lib/whatsapp";
+import { buildWhatsappSimpleUrl, whatsappTemplates } from "@/lib/whatsapp";
+import { getConfiguracion } from "@/lib/constants";
 import {
   CheckCircle2,
   Circle,
@@ -50,9 +51,10 @@ export default async function MiReservaPage() {
     where: { userId: session.user.id },
     include: {
       user: true,
+      pagos: { where: { revertido: false }, select: { monto: true } },
       invitados: {
         orderBy: { numero: "asc" },
-        include: { mesa: true },
+        include: { mesa: true, taller: true },
       },
     },
   });
@@ -62,12 +64,18 @@ export default async function MiReservaPage() {
   }
 
   const entrada = reserva.invitados[0] ?? null;
-  const waUrl = buildWhatsappConfirmacionUrl({
+  const cfg = await getConfiguracion();
+  const totalAbonado = reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+  const saldoPendiente = Math.max(reserva.valorTotal - totalAbonado, 0);
+  const waUrl = buildWhatsappSimpleUrl(cfg.organizadorWhatsapp, whatsappTemplates.confirmacionAporte({
     nombre: reserva.user.nombreCompleto,
     telefono: reserva.user.telefono,
-    invitados: [],
+    email: reserva.user.email,
+    taller: entrada?.taller?.nombre ?? null,
     valorTotal: reserva.valorTotal,
-  });
+    totalAbonado,
+    saldoPendiente,
+  }));
 
   const hasCodigo = !!entrada?.codigo;
   const isCancelado = reserva.estado === EstadoReserva.CANCELADO;
@@ -204,6 +212,9 @@ export default async function MiReservaPage() {
                 {formatCOP(reserva.valorTotal)}
               </p>
               <p className="text-ash text-xs mt-1">1 asistente · {formatCOP(reserva.valorTotal)} c/u</p>
+              <p className="text-ash text-xs mt-1">
+                Abonado: {formatCOP(totalAbonado)} · Saldo: {formatCOP(saldoPendiente)}
+              </p>
             </div>
           )}
 
@@ -212,10 +223,10 @@ export default async function MiReservaPage() {
               <p className="text-bone text-sm">
                 Coordina el aporte con el equipo organizador por WhatsApp.
               </p>
-              <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }))}>
+              {waUrl ? <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }))}>
                 <MessageCircle className="h-5 w-5" />
-                Reportar aporte
-              </a>
+                Comunicarme con el administrador
+              </a> : <p className="rounded-md border border-ember-rust/40 p-3 text-sm text-ash">El numero de WhatsApp para pagos todavia no ha sido configurado.</p>}
               <p className="text-ash text-xs">
                 Una vez confirmemos el aporte, tu ticket se activa automáticamente.
               </p>
@@ -227,10 +238,10 @@ export default async function MiReservaPage() {
               <p className="text-bone text-sm">
                 Coordina el aporte con el equipo organizador por WhatsApp.
               </p>
-              <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }))}>
+              {waUrl ? <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }))}>
                 <MessageCircle className="h-5 w-5" />
-                Reportar aporte
-              </a>
+                Comunicarme con el administrador
+              </a> : <p className="rounded-md border border-ember-rust/40 p-3 text-sm text-ash">El numero de WhatsApp para pagos todavia no ha sido configurado.</p>}
             </div>
           )}
 
@@ -265,10 +276,10 @@ export default async function MiReservaPage() {
 
           {showStickyCta && (
             <div className="sm:hidden fixed inset-x-0 bottom-0 z-30 border-t border-taller-iron bg-taller-night/95 backdrop-blur p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
-              <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }), "w-full")}>
+              {waUrl ? <a href={waUrl} target="_blank" rel="noopener noreferrer" className={cn(buttonVariants({ variant: "whatsapp", size: "lg" }), "w-full")}>
                 <MessageCircle className="h-5 w-5" />
-                Reportar aporte
-              </a>
+                Comunicarme con el administrador
+              </a> : <p className="text-center text-xs text-ash">WhatsApp de pagos no configurado.</p>}
             </div>
           )}
 

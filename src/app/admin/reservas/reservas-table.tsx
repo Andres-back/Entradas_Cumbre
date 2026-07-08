@@ -16,6 +16,7 @@ import { EstadoReserva, EstadoInvitado } from "@prisma/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge, type BadgeVariant } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
 import {
   ArrowRight,
   ArrowUp,
@@ -39,7 +40,10 @@ type ReservaRow = {
   ingresados: number;
   totalInvitados: number;
   valorTotal: number;
+  totalAportado: number;
   estado: EstadoReserva;
+  estadoLabel: string;
+  estadoVariant: BadgeVariant;
   editable: ReservaEditable;
 };
 
@@ -61,22 +65,9 @@ interface ReservasTableProps {
       estado: EstadoInvitado;
       codigo: string | null;
     }>;
+    pagos: Array<{ monto: number }>;
   }>;
 }
-
-const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
-  PAGO_PENDIENTE: "pending",
-  PARCIAL: "paid",
-  ASISTIO: "success",
-  CANCELADO: "cancelled",
-};
-
-const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Aporte pendiente",
-  PARCIAL: "Aporte parcial",
-  ASISTIO: "Asistió",
-  CANCELADO: "Cancelado",
-};
 
 function formatCOP(value: number) {
   return `$ ${value.toLocaleString("es-CO")}`;
@@ -146,11 +137,10 @@ const columns = [
   columnHelper.accessor("estado", {
     id: "estado",
     header: "Estado",
-    cell: (info) => (
-      <Badge variant={estadoVariant[info.getValue()]}>
-        {estadoLabel[info.getValue()]}
-      </Badge>
-    ),
+    cell: (info) => {
+      const row = info.row.original;
+      return <Badge variant={row.estadoVariant}>{row.estadoLabel}</Badge>;
+    },
     sortingFn: "alphanumeric",
   }),
   columnHelper.display({
@@ -179,7 +169,9 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
 
   const data: ReservaRow[] = useMemo(
     () =>
-      reservas.map((r) => ({
+      reservas.map((r) => {
+        const totalAportado = r.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+        return {
         id: r.id,
         nombreCompleto: r.user.nombreCompleto,
         telefono: r.user.telefono,
@@ -189,7 +181,10 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
         ).length,
         totalInvitados: r.invitados.length,
         valorTotal: r.valorTotal,
+        totalAportado,
         estado: r.estado,
+        estadoLabel: reservaEstadoLabel(r.estado, r.valorTotal, totalAportado),
+        estadoVariant: reservaEstadoVariant(r.estado, r.valorTotal, totalAportado),
         editable: {
           id: r.id,
           user: r.user,
@@ -200,7 +195,8 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
             estado: i.estado,
           })),
         },
-      })),
+        };
+      }),
     [reservas]
   );
 
@@ -359,8 +355,8 @@ export default function ReservasTable({ reservas }: ReservasTableProps) {
                           {formatLocal(r.telefono)}
                         </p>
                       </div>
-                      <Badge variant={estadoVariant[r.estado]} className="shrink-0">
-                        {estadoLabel[r.estado]}
+                      <Badge variant={r.estadoVariant} className="shrink-0">
+                        {r.estadoLabel}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm gap-2 flex-wrap pt-2">

@@ -145,6 +145,7 @@ export default async function ReservarPage({
             userNombre={userNombre}
             userTelefono={userTelefono}
             precioPorPersona={cfg.precioPorPersona}
+            whatsappPagos={cfg.organizadorWhatsapp}
           />
         </div>
       </main>

@@ -25,24 +25,11 @@ import { CancelarForm } from "./cancelar-form";
 import { ReactivarButton } from "./action-buttons";
 import { ResetPwdButton } from "../../usuarios/reset-button";
 import { getConfiguracion } from "@/lib/constants";
-import { EstadoInvitado, EstadoReserva } from "@prisma/client";
+import { reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
+import { EstadoInvitado } from "@prisma/client";
 
 export const metadata = {
   title: "Detalle reserva | Admin",
-};
-
-const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
-  PAGO_PENDIENTE: "pending",
-  PARCIAL: "paid",
-  ASISTIO: "success",
-  CANCELADO: "cancelled",
-};
-
-const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Aporte pendiente",
-  PARCIAL: "Aporte parcial",
-  ASISTIO: "AsistiÃ³",
-  CANCELADO: "Cancelado",
 };
 
 const invitadoEstadoVariant: Record<EstadoInvitado, BadgeVariant> = {
@@ -54,7 +41,7 @@ const invitadoEstadoVariant: Record<EstadoInvitado, BadgeVariant> = {
 const invitadoEstadoLabel: Record<EstadoInvitado, string> = {
   PENDIENTE_PAGO: "Pendiente",
   PAGADO: "Pagado",
-  ASISTIO: "AsistiÃ³",
+  ASISTIO: "Asistió",
 };
 
 function formatCOP(value: number) {
@@ -62,7 +49,7 @@ function formatCOP(value: number) {
 }
 
 function formatDateTime(d: Date | null) {
-  if (!d) return "â€”";
+  if (!d) return "—";
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -130,10 +117,8 @@ export default async function AdminReservaDetalle({
     .reduce((acc, pago) => acc + pago.monto, 0);
   const saldoPendiente = Math.max(reserva.valorTotal - totalAportado, 0);
 
-  const estadoDisplay =
-    reserva.estado === EstadoReserva.PARCIAL
-      ? `${invitadosPagados.length + invitadosAsistieron.length}/${reserva.invitados.length} confirmados`
-      : estadoLabel[reserva.estado];
+  const estadoDisplay = reservaEstadoLabel(reserva.estado, reserva.valorTotal, totalAportado);
+  const estadoBadgeVariant = reservaEstadoVariant(reserva.estado, reserva.valorTotal, totalAportado);
 
   return (
     <main className="px-3 py-4 md:px-8 md:py-8 max-w-3xl">
@@ -154,7 +139,7 @@ export default async function AdminReservaDetalle({
             {reserva.invitados.length === 1 ? "asistente" : "asistentes"}
           </h1>
         </div>
-        <Badge variant={estadoVariant[reserva.estado]} className="text-base md:text-lg">
+        <Badge variant={estadoBadgeVariant} className="text-base md:text-lg">
           {estadoDisplay}
         </Badge>
       </div>
@@ -189,7 +174,7 @@ export default async function AdminReservaDetalle({
             </a>
             <div className="pt-3 mt-3 border-t border-taller-iron">
               <p className="text-ash text-sm uppercase tracking-widest font-subhead mb-2">
-                ContraseÃ±a
+                Contraseña
               </p>
               <ResetPwdButton
                 userId={reserva.user.id}
@@ -246,7 +231,7 @@ export default async function AdminReservaDetalle({
               {formatCOP(reserva.valorTotal)}
             </p>
             <p className="text-ash text-sm">
-              {formatCOP(config.precioPorPersona)} c/u Â· esperado mÃ¡ximo
+              {formatCOP(config.precioPorPersona)} c/u · esperado máximo
             </p>
             <div className="pt-2 mt-2 border-t border-taller-iron text-base">
               <div className="flex items-baseline justify-between text-ash">
@@ -490,17 +475,17 @@ export default async function AdminReservaDetalle({
       <Card className="mt-4 md:mt-6">
         <CardHeader>
           <CardTitle className="text-sm md:text-base uppercase tracking-widest text-ash">
-            AuditorÃ­a
+            Auditoría
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-0.5 text-sm md:text-base text-ash">
           <p>Creada: {formatDateTime(reserva.creadaEn)}</p>
-          <p>Ãšltima act: {formatDateTime(reserva.actualizadaEn)}</p>
+          <p>Última act: {formatDateTime(reserva.actualizadaEn)}</p>
           {reserva.confirmadaEn && (
             <p>Confirmada: {formatDateTime(reserva.confirmadaEn)}</p>
           )}
           {reserva.asistioEn && (
-            <p>AsistiÃ³: {formatDateTime(reserva.asistioEn)}</p>
+            <p>Asistió: {formatDateTime(reserva.asistioEn)}</p>
           )}
         </CardContent>
       </Card>

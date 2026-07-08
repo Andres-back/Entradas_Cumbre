@@ -15,6 +15,8 @@ import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { generateEntradaCode, generateTempPassword } from "@/lib/code";
 import { hashPassword, verifyPassword } from "@/lib/password";
+import { ROL_PIC_OPTIONS } from "@/lib/pic";
+import { normalizePhoneE164, normalizeWhatsAppNumber } from "@/lib/whatsapp";
 
 import type {
   AdminActionResult,
@@ -48,6 +50,20 @@ function normalizeCode(input: string): string {
 }
 
 const CODE_REGEX = /^CI-[A-Z2-9]{8}$/;
+
+const phoneSchema = z
+  .string()
+  .trim()
+  .transform((value) => normalizePhoneE164(value))
+  .pipe(z.string().min(1, "Telefono invalido: usa entre 7 y 15 digitos"));
+
+const optionalDateSchema = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => (value ? new Date(`${value}T00:00:00-05:00`) : null))
+  .refine((value) => !value || !Number.isNaN(value.getTime()), "Fecha invalida")
+  .refine((value) => !value || value <= new Date(), "La fecha no puede ser futura");
 
 // ============================================================
 // Serializers
@@ -1132,9 +1148,9 @@ const actualizarConfiguracionSchema = z
       .regex(/^\+?[0-9\s-]+$/, "Solo dígitos, espacios, guiones y opcional +"),
     organizadorWhatsapp: z
       .string()
-      .min(7, "WhatsApp inválido")
-      .max(20)
-      .regex(/^[0-9]+$/, "Solo dígitos (sin + ni espacios, para wa.me/)"),
+      .trim()
+      .transform((value) => normalizeWhatsAppNumber(value))
+      .pipe(z.string().min(1, "WhatsApp invalido")),
   });
 
 export type ActualizarConfiguracionState = {
@@ -1336,86 +1352,199 @@ export async function eliminarUsuarioAdmin(userId: string): Promise<AdminActionR
 }
 
 // ============================================================
-// CRUD RESERVAS (admin)
+// CRUD INSCRIPCIONES INDIVIDUALES (admin)
 // ============================================================
 
 const reservaAdminSchema = z.object({
-  nombreCompleto: z.string().min(3, "Nombre muy corto").max(80),
-  email: z.string().email("Email inválido").toLowerCase(),
-  telefono: z
-    .string()
-    .transform((v) => v.replace(/\D/g, ""))
-    .pipe(z.string().regex(/^\d{10}$/, "Celular colombiano de 10 dígitos"))
-    .transform((digits) => `+57${digits}`),
+  nombreCompleto: z.string().trim().min(3, "Nombre muy corto").max(120),
+  email: z.string().trim().email("Email invalido").toLowerCase(),
+  telefono: phoneSchema,
+  documento: z.string().trim().regex(/^[A-Za-z0-9-]*$/, "Solo letras, numeros y guiones").max(30).optional().nullable(),
+  fechaNacimiento: optionalDateSchema,
+  iglesia: z.string().trim().min(2, "Indica la iglesia").max(150),
+  departamento: z.string().trim().min(2, "Indica el departamento").max(100),
+  ciudad: z.string().trim().min(2, "Indica la ciudad").max(100),
+  rolPic: z.enum(ROL_PIC_OPTIONS, { message: "Selecciona el rol PIC" }),
+  contactoEmergenciaNombre: z.string().trim().min(3, "Indica contacto de emergencia").max(120),
+  contactoEmergenciaTelefono: phoneSchema,
+  aprobacionPastor: z.boolean(),
+  tallerId: idSchema,
+  abonoInicial: z.coerce.number().int().min(0).default(0),
+  marcarPagado: z.boolean().default(false),
+  medio: z.nativeEnum(MedioPago).optional().nullable(),
+  referencia: z.string().trim().max(120).optional().nullable(),
+  notasInternas: z.string().trim().max(500).optional().nullable(),
 });
 
-export async function crearReservaAdmin(
-  _prev: AdminActionResult,
-  formData: FormData
-): Promise<AdminActionResult> {
-  await requireAdmin();
-  const parsed = reservaAdminSchema.safeParse({
+function parseReservaAdmin(formData: FormData) {
+  return reservaAdminSchema.safeParse({
     nombreCompleto: formData.get("nombreCompleto"),
     email: formData.get("email"),
     telefono: formData.get("telefono"),
+    documento: formData.get("documento") || null,
+    fechaNacimiento: formData.get("fechaNacimiento") || undefined,
+    iglesia: formData.get("iglesia"),
+    departamento: formData.get("departamento"),
+    ciudad: formData.get("ciudad"),
+    rolPic: formData.get("rolPic"),
+    contactoEmergenciaNombre: formData.get("contactoEmergenciaNombre"),
+    contactoEmergenciaTelefono: formData.get("contactoEmergenciaTelefono"),
+    aprobacionPastor: formData.get("aprobacionPastor") === "true",
+    tallerId: formData.get("tallerId"),
+    abonoInicial: formData.get("abonoInicial") || 0,
+    marcarPagado: formData.get("marcarPagado") === "on" || formData.get("marcarPagado") === "true",
+    medio: formData.get("medio") || null,
+    referencia: formData.get("referencia") || null,
+    notasInternas: formData.get("notas") || formData.get("notasInternas") || null,
   });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+}
+
+async function habilitarEntradasSiCompleto(
+  tx: Prisma.TransactionClient,
+  reservaId: string,
+  adminId: string
+) {
+  const pendientes = await tx.invitado.findMany({
+    where: { reservaId, estado: EstadoInvitado.PENDIENTE_PAGO },
+    select: { id: true },
+  });
+
+  for (const inv of pendientes) {
+    let code: string | null = null;
+    for (let attempts = 0; attempts < 5; attempts++) {
+      const candidate = generateEntradaCode();
+      try {
+        await tx.invitado.update({
+          where: { id: inv.id },
+          data: {
+            estado: EstadoInvitado.PAGADO,
+            codigo: candidate,
+            adminIdPago: adminId,
+            fechaPago: new Date(),
+          },
+        });
+        code = candidate;
+        break;
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
+        throw err;
+      }
+    }
+    if (!code) throw new Error("NO_SE_PUDO_GENERAR_CODIGO");
   }
+}
+
+export async function crearReservaAdmin(
+  _prev: AdminActionResult<{ reservaId: string; tempPassword: string | null }>,
+  formData: FormData
+): Promise<AdminActionResult<{ reservaId: string; tempPassword: string | null }>> {
+  const session = await requireAdmin();
+  const adminId = session.user.id;
+  const parsed = parseReservaAdmin(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
 
   const config = await getConfiguracion();
   const tempPassword = generateTempPassword();
+  let createdUser = false;
+  let reservaId = "";
 
   try {
     await prisma.$transaction(async (tx) => {
-      const user = await tx.user.upsert({
-        where: { email: parsed.data.email },
-        update: {
-          nombreCompleto: parsed.data.nombreCompleto,
-          telefono: parsed.data.telefono,
-        },
-        create: {
-          nombreCompleto: parsed.data.nombreCompleto,
-          email: parsed.data.email,
-          telefono: parsed.data.telefono,
-          passwordHash: await hashPassword(tempPassword),
-          debeCambiarContrasena: true,
-          rol: Rol.USUARIO,
-        },
-      });
+      const taller = await tx.taller.findUnique({ where: { id: parsed.data.tallerId }, select: { activo: true, cupo: true } });
+      if (!taller?.activo) throw new Error("TALLER_NO_DISPONIBLE");
+      if (taller.cupo !== null) {
+        const inscritos = await tx.reserva.count({ where: { estado: { not: EstadoReserva.CANCELADO }, user: { tallerId: parsed.data.tallerId } } });
+        if (inscritos >= taller.cupo) throw new Error("TALLER_SIN_CUPO");
+      }
+
+      let user = await tx.user.findUnique({ where: { email: parsed.data.email } });
+      if (!user) {
+        user = await tx.user.create({
+          data: {
+            nombreCompleto: parsed.data.nombreCompleto,
+            email: parsed.data.email,
+            telefono: parsed.data.telefono,
+            passwordHash: await hashPassword(tempPassword),
+            debeCambiarContrasena: true,
+            rol: Rol.USUARIO,
+          },
+        });
+        createdUser = true;
+      }
 
       const existing = await tx.reserva.findUnique({ where: { userId: user.id } });
       if (existing) throw new Error("USUARIO_YA_TIENE_RESERVA");
 
-      await tx.reserva.create({
+      const perfilData = {
+        nombreCompleto: parsed.data.nombreCompleto,
+        telefono: parsed.data.telefono,
+        documento: parsed.data.documento || null,
+        fechaNacimiento: parsed.data.fechaNacimiento,
+        iglesia: parsed.data.iglesia,
+        departamento: parsed.data.departamento,
+        ciudad: parsed.data.ciudad,
+        rolPic: parsed.data.rolPic,
+        contactoEmergenciaNombre: parsed.data.contactoEmergenciaNombre,
+        contactoEmergenciaTelefono: parsed.data.contactoEmergenciaTelefono,
+        aprobacionPastor: parsed.data.aprobacionPastor,
+        tallerId: parsed.data.tallerId,
+      };
+
+      await tx.user.update({ where: { id: user.id }, data: perfilData });
+
+      const reserva = await tx.reserva.create({
         data: {
           userId: user.id,
           valorTotal: config.precioPorPersona,
           estado: EstadoReserva.PAGO_PENDIENTE,
-          invitados: {
-            create: {
-              numero: 1,
-              nombreCompleto: parsed.data.nombreCompleto,
-              telefono: parsed.data.telefono,
-            },
-          },
+          invitados: { create: { numero: 1, emailContacto: parsed.data.email, ...perfilData } },
         },
       });
-    });
+      reservaId = reserva.id;
+
+      const montoARegistrar = parsed.data.marcarPagado ? config.precioPorPersona : parsed.data.abonoInicial;
+      if (montoARegistrar > config.precioPorPersona) throw new Error("ABONO_SUPERA_SALDO");
+      if (montoARegistrar > 0) {
+        if (!parsed.data.medio) throw new Error("MEDIO_REQUERIDO");
+        await tx.pago.create({
+          data: {
+            reservaId,
+            medio: parsed.data.medio,
+            referencia: parsed.data.referencia || null,
+            notasInternas: parsed.data.notasInternas || null,
+            monto: montoARegistrar,
+            adminId,
+            invitadosCubiertos: [],
+          },
+        });
+        if (montoARegistrar >= config.precioPorPersona) await habilitarEntradasSiCompleto(tx, reservaId, adminId);
+        await tx.reserva.update({
+          where: { id: reservaId },
+          data: { estado: EstadoReserva.PARCIAL, confirmadaEn: montoARegistrar >= config.precioPorPersona ? new Date() : null },
+        });
+      }
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
-    if (err instanceof Error && err.message === "USUARIO_YA_TIENE_RESERVA") {
-      return { error: "Ese usuario ya tiene una reserva." };
+    if (err instanceof Error) {
+      if (err.message === "USUARIO_YA_TIENE_RESERVA") return { error: "Esta persona ya tiene una inscripcion registrada." };
+      if (err.message === "TALLER_NO_DISPONIBLE") return { error: "El taller seleccionado no esta disponible." };
+      if (err.message === "TALLER_SIN_CUPO") return { error: "El taller seleccionado no tiene cupos." };
+      if (err.message === "ABONO_SUPERA_SALDO") return { error: "El abono no puede superar el total." };
+      if (err.message === "MEDIO_REQUERIDO") return { error: "Selecciona un medio de pago para registrar abono." };
     }
     throw err;
   }
 
   revalidatePath("/admin/reservas");
   revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/pagos");
+  revalidatePath("/admin/talleres");
   revalidatePath("/admin");
   return {
     error: null,
     success: true,
-    message: `Reserva creada. Password temporal si el usuario era nuevo: ${tempPassword}`,
+    message: createdUser ? `Inscripcion creada. Password temporal: ${tempPassword}` : "Inscripcion creada para la cuenta existente.",
+    data: { reservaId, tempPassword: createdUser ? tempPassword : null },
   };
 }
 
@@ -1426,78 +1555,63 @@ export async function editarReservaAdmin(
   await requireAdmin();
   const reservaId = String(formData.get("reservaId") ?? "");
   const idResult = idSchema.safeParse(reservaId);
-  if (!idResult.success) return { error: "ID de reserva inválido." };
+  if (!idResult.success) return { error: "ID de inscripcion invalido." };
 
-  const parsed = reservaAdminSchema.safeParse({
-    nombreCompleto: formData.get("nombreCompleto"),
-    email: formData.get("email"),
-    telefono: formData.get("telefono"),
-  });
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
-  }
+  const parsed = parseReservaAdmin(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
 
   const config = await getConfiguracion();
   try {
     await prisma.$transaction(async (tx) => {
-      const reserva = await tx.reserva.findUnique({
-        where: { id: reservaId },
-        include: { user: true, invitados: { orderBy: { numero: "asc" } } },
-      });
+      const reserva = await tx.reserva.findUnique({ where: { id: reservaId }, include: { user: true, invitados: { orderBy: { numero: "asc" } } } });
       if (!reserva) throw new Error("RESERVA_NO_EXISTE");
+      if (reserva.estado === EstadoReserva.CANCELADO) throw new Error("RESERVA_CANCELADA");
 
-      await tx.user.update({
-        where: { id: reserva.userId },
-        data: {
-          nombreCompleto: parsed.data.nombreCompleto,
-          email: parsed.data.email,
-          telefono: parsed.data.telefono,
-        },
-      });
+      const taller = await tx.taller.findUnique({ where: { id: parsed.data.tallerId }, select: { activo: true, cupo: true } });
+      if (!taller?.activo) throw new Error("TALLER_NO_DISPONIBLE");
+      if (taller.cupo !== null && parsed.data.tallerId !== reserva.user.tallerId) {
+        const inscritos = await tx.reserva.count({ where: { id: { not: reservaId }, estado: { not: EstadoReserva.CANCELADO }, user: { tallerId: parsed.data.tallerId } } });
+        if (inscritos >= taller.cupo) throw new Error("TALLER_SIN_CUPO");
+      }
+
+      const userData = {
+        nombreCompleto: parsed.data.nombreCompleto,
+        email: parsed.data.email,
+        telefono: parsed.data.telefono,
+        documento: parsed.data.documento || null,
+        fechaNacimiento: parsed.data.fechaNacimiento,
+        iglesia: parsed.data.iglesia,
+        departamento: parsed.data.departamento,
+        ciudad: parsed.data.ciudad,
+        rolPic: parsed.data.rolPic,
+        contactoEmergenciaNombre: parsed.data.contactoEmergenciaNombre,
+        contactoEmergenciaTelefono: parsed.data.contactoEmergenciaTelefono,
+        aprobacionPastor: parsed.data.aprobacionPastor,
+        tallerId: parsed.data.tallerId,
+      };
+      await tx.user.update({ where: { id: reserva.userId }, data: userData });
 
       const entrada = reserva.invitados.find((i) => i.numero === 1) ?? reserva.invitados[0];
-      if (entrada) {
-        await tx.invitado.update({
-          where: { id: entrada.id },
-          data: {
-            numero: 1,
-            nombreCompleto: parsed.data.nombreCompleto,
-            telefono: parsed.data.telefono,
-          },
-        });
-      } else {
-        await tx.invitado.create({
-          data: {
-            reservaId,
-            numero: 1,
-            nombreCompleto: parsed.data.nombreCompleto,
-            telefono: parsed.data.telefono,
-          },
-        });
-      }
+      const invitadoData = { numero: 1, emailContacto: parsed.data.email, ...userData };
+      if (entrada) await tx.invitado.update({ where: { id: entrada.id }, data: invitadoData });
+      else await tx.invitado.create({ data: { reservaId, ...invitadoData } });
 
       const sobrantes = reserva.invitados.filter((i) => i.id !== entrada?.id);
       for (const inv of sobrantes) {
-        if (inv.estado !== EstadoInvitado.PENDIENTE_PAGO) {
-          throw new Error("NO_SE_PUEDE_REMOVER_CONFIRMADOS");
-        }
+        if (inv.estado !== EstadoInvitado.PENDIENTE_PAGO) throw new Error("NO_SE_PUEDE_REMOVER_CONFIRMADOS");
         await tx.invitado.delete({ where: { id: inv.id } });
       }
 
-      await tx.reserva.update({
-        where: { id: reservaId },
-        data: { valorTotal: config.precioPorPersona },
-      });
-    });
+      await tx.reserva.update({ where: { id: reservaId }, data: { valorTotal: config.precioPorPersona } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
-    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { error: "El email ya pertenece a otro usuario." };
-    }
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return { error: "El email ya pertenece a otro usuario." };
     if (err instanceof Error) {
-      if (err.message === "RESERVA_NO_EXISTE") return { error: "Reserva no encontrada." };
-      if (err.message === "NO_SE_PUEDE_REMOVER_CONFIRMADOS") {
-        return { error: "No puedes convertir esta reserva a individual porque tiene otras personas ya confirmadas o con ingreso." };
-      }
+      if (err.message === "RESERVA_NO_EXISTE") return { error: "Inscripcion no encontrada." };
+      if (err.message === "RESERVA_CANCELADA") return { error: "La inscripcion fue cancelada." };
+      if (err.message === "TALLER_NO_DISPONIBLE") return { error: "El taller seleccionado no esta disponible." };
+      if (err.message === "TALLER_SIN_CUPO") return { error: "El taller seleccionado no tiene cupos." };
+      if (err.message === "NO_SE_PUEDE_REMOVER_CONFIRMADOS") return { error: "No puedes editar esta inscripcion porque tiene personas confirmadas fuera del modelo individual." };
     }
     throw err;
   }
@@ -1505,23 +1619,24 @@ export async function editarReservaAdmin(
   revalidatePath("/admin/reservas");
   revalidatePath(`/admin/reservas/${reservaId}`);
   revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/talleres");
   revalidatePath("/mi-reserva");
-  return { error: null, success: true, message: "Reserva actualizada." };
+  return { error: null, success: true, message: "Inscripcion actualizada." };
 }
 
 export async function eliminarReservaAdmin(reservaId: string): Promise<AdminActionResult> {
   await requireAdmin();
   const idResult = idSchema.safeParse(reservaId);
-  if (!idResult.success) return { error: "ID de reserva inválido." };
+  if (!idResult.success) return { error: "ID de inscripcion invalido." };
 
   await prisma.reserva.delete({ where: { id: reservaId } });
   revalidatePath("/admin/reservas");
   revalidatePath("/admin/usuarios");
+  revalidatePath("/admin/talleres");
   revalidatePath("/admin");
   revalidatePath("/mi-reserva");
-  return { error: null, success: true, message: "Reserva eliminada." };
+  return { error: null, success: true, message: "Inscripcion eliminada." };
 }
-
 // ============================================================
 // ABONOS Y TALLERES (MVP Cumbre)
 // ============================================================

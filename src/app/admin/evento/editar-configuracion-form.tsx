@@ -29,9 +29,9 @@ const formSchema = z.object({
     .regex(/^\+?[0-9\s-]+$/, "Solo dígitos, espacios, guiones y opcional +"),
   organizadorWhatsapp: z
     .string()
-    .min(7, "Mínimo 7 dígitos")
-    .max(20)
-    .regex(/^[0-9]+$/, "Solo dígitos (sin + ni espacios)"),
+    .min(7, "Minimo 7 digitos")
+    .max(25)
+    .regex(/^\+?[0-9\s-]+$/, "Solo digitos, espacios, guiones y opcional +"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -270,12 +270,12 @@ export function EditarConfiguracionForm({
             </div>
             <div>
               <label htmlFor="organizadorWhatsapp" className="block text-sm text-ash uppercase tracking-widest font-subhead mb-1">
-                WhatsApp (sin +, para wa.me/)
+                Numero de WhatsApp para pagos
               </label>
               <Input
                 id="organizadorWhatsapp"
                 {...register("organizadorWhatsapp")}
-                placeholder="573118268444"
+                placeholder="+57 311 826 8444"
                 className="h-12 text-base"
               />
               {errors.organizadorWhatsapp && (
@@ -313,5 +313,3 @@ export function EditarConfiguracionForm({
     </form>
   );
 }
-
-

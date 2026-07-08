@@ -20,12 +20,12 @@ interface DashboardChartsProps {
 }
 
 const ESTADO_COLORS: Record<string, string> = {
-  "Pago pendiente": "#7A8A9E",
-  "Pago parcial": "#E87036",
+  "Aporte pendiente": "#7A8A9E",
+  "Aporte parcial": "#E87036",
+  "Aporte pagado": "#22C55E",
   Asistió: "#22C55E",
   Cancelado: "#C75128",
 };
-
 const BAR_COLOR = "#E87036";
 
 interface TooltipPayload {

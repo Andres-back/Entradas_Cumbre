@@ -37,12 +37,17 @@ enum MedioPago {
 }
 
 enum RolPic {
+  LIDER_ALIANZA_MENTOR
+  COORDINADOR_IGLESIA_LOCAL
+  LIDER_CASA_PAZ_GRUPO_CONEXION
+  LIDER_ORACION
+  PASTOR_ALIADO_PIC
+  INVITADO
   PASTOR
   LIDER
   SERVIDOR
   JOVEN
   ADULTO
-  INVITADO
   OTRO
 }
 
@@ -62,7 +67,7 @@ model User {
   contactoEmergenciaTelefono String?
   aprobacionPastor           Boolean         @default(false)
   tallerId                   String?
-  taller                     Taller?         @relation("UserTaller", fields: [tallerId], references: [id], onDelete: SetNull)
+  taller                     Taller?         @relation("UserTaller", fields: [tallerId], references: [id], onDelete: Restrict)
   rol                        Rol             @default(USUARIO)
   reserva                    Reserva?
   pagosRegistrados           Pago[]          @relation("AdminQueRegistroPago")
@@ -79,6 +84,10 @@ model User {
   actualizadoEn DateTime @updatedAt
 
   @@index([tallerId])
+  @@index([ciudad])
+  @@index([departamento])
+  @@index([rolPic])
+  @@index([aprobacionPastor])
   @@map("users")
 }
 
@@ -164,7 +173,7 @@ model Invitado {
   contactoEmergenciaTelefono String?
   aprobacionPastor           Boolean   @default(false)
   tallerId                   String?
-  taller                     Taller?   @relation("InvitadoTaller", fields: [tallerId], references: [id], onDelete: SetNull)
+  taller                     Taller?   @relation("InvitadoTaller", fields: [tallerId], references: [id], onDelete: Restrict)
 
   estado EstadoInvitado @default(PENDIENTE_PAGO)
 
@@ -207,6 +216,11 @@ model Invitado {
   @@index([codigo]) // busqueda en el validador de puerta
   @@index([estado])
   @@index([tallerId])
+  @@index([ciudad])
+  @@index([departamento])
+  @@index([rolPic])
+  @@index([aprobacionPastor])
+  @@index([mesaId])
   @@map("invitados")
 }
 

@@ -54,9 +54,12 @@ export function MarcarPagadoForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <label className="block">
           <span className="mb-1 block font-subhead text-sm uppercase tracking-widest text-ash">
-            Abono
+            Monto a registrar
           </span>
           <Input name="monto" type="number" min={1000} max={saldoPendiente} step={1000} required defaultValue={saldoPendiente} />
+          <p className="mt-1 text-xs text-ash">
+            Para marcar como pagado se registrara exactamente el saldo pendiente.
+          </p>
         </label>
         <label className="block">
           <span className="mb-1 block font-subhead text-sm uppercase tracking-widest text-ash">
@@ -113,7 +116,7 @@ function SubmitButton({ saldoPendiente }: { saldoPendiente: number }) {
       ) : (
         <>
           <WalletCards className="h-6 w-6" />
-          Registrar abono hasta {formatCOP(saldoPendiente)}
+          Marcar como pagado por {formatCOP(saldoPendiente)}
         </>
       )}
     </Button>

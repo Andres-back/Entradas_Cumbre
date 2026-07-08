@@ -3,8 +3,9 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { ADMIN_NAME } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeVariant } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { AnimatedNumber } from "@/components/ui/animated-number";
+import { reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
 import {
   ArrowRight,
   Users,
@@ -19,20 +20,6 @@ export const metadata = {
   title: "Panel admin | Cumbre Impacto",
 };
 
-const estadoVariant: Record<EstadoReserva, BadgeVariant> = {
-  PAGO_PENDIENTE: "pending",
-  PARCIAL: "paid",
-  ASISTIO: "success",
-  CANCELADO: "cancelled",
-};
-
-const estadoLabel: Record<EstadoReserva, string> = {
-  PAGO_PENDIENTE: "Aporte pendiente",
-  PARCIAL: "Aporte parcial",
-  ASISTIO: "Asistió",
-  CANCELADO: "Cancelado",
-};
-
 function formatCOP(value: number) {
   return `$ ${value.toLocaleString("es-CO")} COP`;
 }
@@ -45,13 +32,14 @@ export default async function AdminDashboard() {
   hace7Dias.setDate(hace7Dias.getDate() - 7);
   hace7Dias.setHours(0, 0, 0, 0);
 
-  const [todas, ultimas, estadoAgrupado, reservas7Dias] = await Promise.all([
+  const [todas, ultimas, reservas7Dias] = await Promise.all([
     prisma.reserva.findMany({
       where: { estado: { not: EstadoReserva.CANCELADO } },
       select: {
         estado: true,
         valorTotal: true,
         invitados: { select: { id: true } },
+        pagos: { where: { revertido: false }, select: { monto: true } },
       },
     }),
     prisma.reserva.findMany({
@@ -60,11 +48,8 @@ export default async function AdminDashboard() {
       include: {
         user: { select: { nombreCompleto: true } },
         invitados: { select: { id: true } },
+        pagos: { where: { revertido: false }, select: { monto: true } },
       },
-    }),
-    prisma.reserva.groupBy({
-      by: ["estado"],
-      _count: { id: true },
     }),
     prisma.reserva.findMany({
       where: { creadaEn: { gte: hace7Dias } },
@@ -92,11 +77,14 @@ export default async function AdminDashboard() {
     })
     .then((r) => r._sum.monto ?? 0);
 
-  const estadoDistribucion = estadoAgrupado
-    .map((e) => ({
-      estado: estadoLabel[e.estado],
-      count: e._count.id,
-    }))
+  const estadoCounts = new Map<string, number>();
+  for (const reserva of todas) {
+    const totalAportado = reserva.pagos.reduce((acc, pago) => acc + pago.monto, 0);
+    const label = reservaEstadoLabel(reserva.estado, reserva.valorTotal, totalAportado);
+    estadoCounts.set(label, (estadoCounts.get(label) ?? 0) + 1);
+  }
+  const estadoDistribucion = Array.from(estadoCounts.entries())
+    .map(([estado, count]) => ({ estado, count }))
     .sort((a, b) => b.count - a.count);
 
   const diasMap: Record<string, number> = {};
@@ -186,8 +174,18 @@ export default async function AdminDashboard() {
                       {formatCOP(r.valorTotal)}
                     </p>
                   </div>
-                  <Badge variant={estadoVariant[r.estado]}>
-                    {estadoLabel[r.estado]}
+                  <Badge
+                    variant={reservaEstadoVariant(
+                      r.estado,
+                      r.valorTotal,
+                      r.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                    )}
+                  >
+                    {reservaEstadoLabel(
+                      r.estado,
+                      r.valorTotal,
+                      r.pagos.reduce((acc, pago) => acc + pago.monto, 0)
+                    )}
                   </Badge>
                   <Link
                     href={`/admin/reservas/${r.id}`}

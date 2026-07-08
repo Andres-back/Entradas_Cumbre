@@ -17,8 +17,23 @@ export default async function RegistroPage({ searchParams }: Props) {
   const talleres = await prisma.taller.findMany({
     where: { activo: true },
     orderBy: [{ orden: "asc" }, { nombre: "asc" }],
-    select: { id: true, nombre: true, cupo: true },
+    select: {
+      id: true,
+      nombre: true,
+      descripcion: true,
+      cupo: true,
+      _count: { select: { usuarios: true } },
+    },
   });
+  const tallerOptions = talleres
+    .map((taller) => ({
+      id: taller.id,
+      nombre: taller.nombre,
+      descripcion: taller.descripcion,
+      cupo: taller.cupo,
+      inscritos: taller._count.usuarios,
+    }))
+    .filter((taller) => taller.cupo === null || taller.inscritos < taller.cupo);
 
   return (
     <main className="flex-1 px-4 py-10 md:py-14">
@@ -32,7 +47,7 @@ export default async function RegistroPage({ searchParams }: Props) {
             Cada participante debe registrarse con sus propios datos.
           </p>
         </div>
-        <RegistroForm next={next} talleres={talleres} />
+        <RegistroForm next={next} talleres={tallerOptions} />
         <p className="mt-6 text-center text-sm text-ash">
           Ya tienes cuenta?{" "}
           <Link

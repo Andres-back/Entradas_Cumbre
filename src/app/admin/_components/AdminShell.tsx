@@ -17,7 +17,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/validar", label: "Validar", icon: TicketCheck },
-  { href: "/admin/reservas", label: "Reservas", icon: Users },
+  { href: "/admin/reservas", label: "Inscripciones", icon: Users },
   { href: "/admin/mesas", label: "Mesas", icon: Grid3x3 },
   { href: "/admin/talleres", label: "Talleres", icon: PanelsTopLeft },
   { href: "/admin/usuarios", label: "Usuarios", icon: UserCog },
@@ -119,5 +119,3 @@ export function AdminShell({
     </div>
   );
 }
-
-

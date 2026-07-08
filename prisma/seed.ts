@@ -73,17 +73,18 @@ async function main() {
     },
   });
 
-  for (const [index, nombre] of ["Taller 1", "Taller 2", "Taller 3", "Taller 4"].entries()) {
-    await prisma.taller.upsert({
-      where: { nombre },
-      update: { orden: index + 1, activo: true },
-      create: { nombre, orden: index + 1, activo: true },
-    });
+  const talleresCount = await prisma.taller.count();
+  if (talleresCount === 0) {
+    for (const [index, nombre] of ["Taller 1", "Taller 2", "Taller 3", "Taller 4"].entries()) {
+      await prisma.taller.create({
+        data: { nombre, orden: index + 1, activo: true },
+      });
+    }
   }
 
   console.log(`[seed] Admin "${adminNombre}" (${adminEmail}) verificado/creado.`);
   console.log(`[seed] Configuracion inicial de ${EVENT_CONFIG.name} verificada/creada.`);
-  console.log("[seed] Talleres base verificados/creados.");
+  console.log("[seed] Talleres base verificados. Solo se crean si no existe ningun taller.");
 }
 
 main()
