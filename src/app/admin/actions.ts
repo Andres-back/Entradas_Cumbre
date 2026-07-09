@@ -1400,6 +1400,40 @@ function parseReservaAdmin(formData: FormData) {
   });
 }
 
+const editarReservaAdminSchema = z.object({
+  nombreCompleto: z.string().trim().min(3, "Nombre muy corto").max(120),
+  email: z.string().trim().email("Email invalido").toLowerCase(),
+  telefono: z.string().trim().min(1, "Telefono requerido").max(20),
+  documento: z.string().trim().regex(/^[A-Za-z0-9-]*$/, "Solo letras, numeros y guiones").max(30).optional().nullable().default(null),
+  fechaNacimiento: z.string().trim().optional().default("").transform((v) => (v ? new Date(`${v}T00:00:00-05:00`) : null)).nullable(),
+  iglesia: z.string().trim().max(150).optional().nullable().default(null),
+  departamento: z.string().trim().max(100).optional().nullable().default(null),
+  ciudad: z.string().trim().max(100).optional().nullable().default(null),
+  rolPic: z.enum(ROL_PIC_OPTIONS).optional().nullable().default(null),
+  contactoEmergenciaNombre: z.string().trim().max(120).optional().nullable().default(null),
+  contactoEmergenciaTelefono: z.string().trim().max(20).optional().nullable().default(null),
+  aprobacionPastor: z.boolean(),
+  tallerId: z.string().trim().optional().nullable().default(null),
+});
+
+function parseEditarReservaAdmin(formData: FormData) {
+  return editarReservaAdminSchema.safeParse({
+    nombreCompleto: formData.get("nombreCompleto") || "",
+    email: formData.get("email") || "",
+    telefono: formData.get("telefono") || "",
+    documento: formData.get("documento") || null,
+    fechaNacimiento: formData.get("fechaNacimiento") || "",
+    iglesia: formData.get("iglesia") || null,
+    departamento: formData.get("departamento") || null,
+    ciudad: formData.get("ciudad") || null,
+    rolPic: formData.get("rolPic") || null,
+    contactoEmergenciaNombre: formData.get("contactoEmergenciaNombre") || null,
+    contactoEmergenciaTelefono: formData.get("contactoEmergenciaTelefono") || null,
+    aprobacionPastor: formData.get("aprobacionPastor") === "true",
+    tallerId: formData.get("tallerId") || null,
+  });
+}
+
 async function habilitarEntradasSiCompleto(
   tx: Prisma.TransactionClient,
   reservaId: string,
@@ -1578,52 +1612,85 @@ export async function editarReservaAdmin(
   const idResult = idSchema.safeParse(reservaId);
   if (!idResult.success) return { error: "ID de inscripcion invalido." };
 
-  const parsed = parseReservaAdmin(formData);
+  const parsed = parseEditarReservaAdmin(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
 
-  const config = await getConfiguracion();
   try {
     await prisma.$transaction(async (tx) => {
       const reserva = await tx.reserva.findUnique({ where: { id: reservaId }, include: { user: true, invitados: { orderBy: { numero: "asc" } } } });
       if (!reserva) throw new Error("RESERVA_NO_EXISTE");
       if (reserva.estado === EstadoReserva.CANCELADO) throw new Error("RESERVA_CANCELADA");
 
-      const taller = await tx.taller.findUnique({ where: { id: parsed.data.tallerId }, select: { activo: true, cupo: true } });
-      if (!taller?.activo) throw new Error("TALLER_NO_DISPONIBLE");
-      if (taller.cupo !== null && parsed.data.tallerId !== reserva.user.tallerId) {
-        const inscritos = await tx.reserva.count({ where: { id: { not: reservaId }, estado: { not: EstadoReserva.CANCELADO }, user: { tallerId: parsed.data.tallerId } } });
-        if (inscritos >= taller.cupo) throw new Error("TALLER_SIN_CUPO");
+      const d = parsed.data;
+
+      if (d.tallerId) {
+        const taller = await tx.taller.findUnique({ where: { id: d.tallerId }, select: { activo: true, cupo: true } });
+        if (!taller?.activo) throw new Error("TALLER_NO_DISPONIBLE");
+        if (taller.cupo !== null && d.tallerId !== reserva.user.tallerId) {
+          const inscritos = await tx.reserva.count({
+            where: { id: { not: reservaId }, estado: { not: EstadoReserva.CANCELADO }, user: { tallerId: d.tallerId } },
+          });
+          if (inscritos >= taller.cupo) throw new Error("TALLER_SIN_CUPO");
+        }
       }
 
       const userData = {
-        nombreCompleto: parsed.data.nombreCompleto,
-        email: parsed.data.email,
-        telefono: parsed.data.telefono,
-        documento: parsed.data.documento || null,
-        fechaNacimiento: parsed.data.fechaNacimiento,
-        iglesia: parsed.data.iglesia,
-        departamento: parsed.data.departamento,
-        ciudad: parsed.data.ciudad,
-        rolPic: parsed.data.rolPic,
-        contactoEmergenciaNombre: parsed.data.contactoEmergenciaNombre,
-        contactoEmergenciaTelefono: parsed.data.contactoEmergenciaTelefono,
-        aprobacionPastor: parsed.data.aprobacionPastor,
-        tallerId: parsed.data.tallerId,
+        nombreCompleto: d.nombreCompleto,
+        email: d.email,
+        telefono: d.telefono,
+        documento: d.documento ?? null,
+        fechaNacimiento: d.fechaNacimiento,
+        iglesia: d.iglesia ?? null,
+        departamento: d.departamento ?? null,
+        ciudad: d.ciudad ?? null,
+        rolPic: d.rolPic ?? null,
+        contactoEmergenciaNombre: d.contactoEmergenciaNombre ?? null,
+        contactoEmergenciaTelefono: d.contactoEmergenciaTelefono ?? null,
+        aprobacionPastor: d.aprobacionPastor,
+        tallerId: d.tallerId ?? null,
       };
       await tx.user.update({ where: { id: reserva.userId }, data: userData });
 
       const entrada = reserva.invitados.find((i) => i.numero === 1) ?? reserva.invitados[0];
-      const invitadoData = { numero: 1, emailContacto: parsed.data.email, ...userData };
-      if (entrada) await tx.invitado.update({ where: { id: entrada.id }, data: invitadoData });
-      else await tx.invitado.create({ data: { reservaId, ...invitadoData } });
+      if (entrada) {
+        await tx.invitado.update({
+          where: { id: entrada.id },
+          data: {
+            numero: 1,
+            nombreCompleto: d.nombreCompleto,
+            telefono: d.telefono,
+            emailContacto: d.email,
+            documento: d.documento ?? null,
+            iglesia: d.iglesia ?? null,
+            tallerId: d.tallerId ?? null,
+            contactoEmergenciaNombre: d.contactoEmergenciaNombre ?? null,
+            contactoEmergenciaTelefono: d.contactoEmergenciaTelefono ?? null,
+            aprobacionPastor: d.aprobacionPastor,
+          },
+        });
+      } else {
+        await tx.invitado.create({
+          data: {
+            reservaId,
+            numero: 1,
+            nombreCompleto: d.nombreCompleto,
+            telefono: d.telefono,
+            emailContacto: d.email,
+            documento: d.documento ?? null,
+            iglesia: d.iglesia ?? null,
+            tallerId: d.tallerId ?? null,
+            contactoEmergenciaNombre: d.contactoEmergenciaNombre ?? null,
+            contactoEmergenciaTelefono: d.contactoEmergenciaTelefono ?? null,
+            aprobacionPastor: d.aprobacionPastor,
+          },
+        });
+      }
 
       const sobrantes = reserva.invitados.filter((i) => i.id !== entrada?.id);
       for (const inv of sobrantes) {
         if (inv.estado !== EstadoInvitado.PENDIENTE_PAGO) throw new Error("NO_SE_PUEDE_REMOVER_CONFIRMADOS");
         await tx.invitado.delete({ where: { id: inv.id } });
       }
-
-      await tx.reserva.update({ where: { id: reservaId }, data: { valorTotal: config.precioPorPersona } });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") return { error: "El email ya pertenece a otro usuario." };

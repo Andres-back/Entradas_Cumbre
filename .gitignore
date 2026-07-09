@@ -50,3 +50,14 @@ backups/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# data protection - CSV, dumps, import logs
+datos.csv
+datos_normalizados.csv
+datos_*.csv
+preview_*.csv
+CSV_DIAGNOSTICO*.md
+IMPORTACION_CSV_PREVIEW*.md
+IMPORTACION_CSV_RESULTADO*.md
+tmp/importaciones/
+*.dump

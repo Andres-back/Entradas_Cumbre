@@ -24,6 +24,7 @@ import { MarcarPagadoForm } from "./marcar-pagado-form";
 import { CancelarForm } from "./cancelar-form";
 import { ReactivarButton } from "./action-buttons";
 import { ResetPwdButton } from "../../usuarios/reset-button";
+import { EditarInscripcionForm } from "./editar-inscripcion-form";
 import { getConfiguracion } from "@/lib/constants";
 import { reservaEstadoLabel, reservaEstadoVariant } from "@/lib/payment-status";
 import { EstadoInvitado } from "@prisma/client";
@@ -41,7 +42,7 @@ const invitadoEstadoVariant: Record<EstadoInvitado, BadgeVariant> = {
 const invitadoEstadoLabel: Record<EstadoInvitado, string> = {
   PENDIENTE_PAGO: "Pendiente",
   PAGADO: "Pagado",
-  ASISTIO: "Asistió",
+  ASISTIO: "AsistiÃ³",
 };
 
 function formatCOP(value: number) {
@@ -49,7 +50,7 @@ function formatCOP(value: number) {
 }
 
 function formatDateTime(d: Date | null) {
-  if (!d) return "—";
+  if (!d) return "â€”";
   return new Intl.DateTimeFormat("es-CO", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -70,7 +71,20 @@ export default async function AdminReservaDetalle({
 }) {
   const { id } = await params;
 
-  const config = await getConfiguracion();
+  const [config, talleres] = await Promise.all([
+    getConfiguracion(),
+    prisma.taller.findMany({
+      orderBy: [{ activo: "desc" }, { orden: "asc" }, { nombre: "asc" }],
+      select: {
+        id: true,
+        nombre: true,
+        descripcion: true,
+        cupo: true,
+        activo: true,
+        _count: { select: { usuarios: true } },
+      },
+    }),
+  ]);
 
   const reserva = await prisma.reserva.findUnique({
     where: { id },
@@ -85,6 +99,7 @@ export default async function AdminReservaDetalle({
   });
 
   if (!reserva) notFound();
+  if (!reserva.user) notFound();
 
   const estadoActivo = reserva.estado !== "CANCELADO";
   const waUrl = buildWhatsappSimpleUrl(
@@ -174,7 +189,7 @@ export default async function AdminReservaDetalle({
             </a>
             <div className="pt-3 mt-3 border-t border-taller-iron">
               <p className="text-ash text-sm uppercase tracking-widest font-subhead mb-2">
-                Contraseña
+                ContraseÃ±a
               </p>
               <ResetPwdButton
                 userId={reserva.user.id}
@@ -231,7 +246,7 @@ export default async function AdminReservaDetalle({
               {formatCOP(reserva.valorTotal)}
             </p>
             <p className="text-ash text-sm">
-              {formatCOP(config.precioPorPersona)} c/u · esperado máximo
+              {formatCOP(config.precioPorPersona)} c/u Â· esperado mÃ¡ximo
             </p>
             <div className="pt-2 mt-2 border-t border-taller-iron text-base">
               <div className="flex items-baseline justify-between text-ash">
@@ -247,6 +262,42 @@ export default async function AdminReservaDetalle({
         </Card>
       </div>
 
+      <Card className="mb-4 md:mb-6">
+        <CardHeader>
+          <CardTitle className="text-base md:text-lg flex items-center gap-2">
+            <User className="h-5 w-5 text-ember-bright" /> Editar datos de inscripcion
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EditarInscripcionForm
+            inscripcion={{
+              id: reserva.id,
+              nombreCompleto: reserva.user.nombreCompleto ?? "",
+              email: reserva.user.email ?? "",
+              telefono: reserva.user.telefono ?? "",
+              documento: reserva.user.documento,
+              fechaNacimiento: reserva.user.fechaNacimiento
+                ? reserva.user.fechaNacimiento.toISOString().slice(0, 10)
+                : "",
+              iglesia: reserva.user.iglesia,
+              departamento: reserva.user.departamento,
+              ciudad: reserva.user.ciudad,
+              rolPic: reserva.user.rolPic,
+              contactoEmergenciaNombre: reserva.user.contactoEmergenciaNombre,
+              contactoEmergenciaTelefono: reserva.user.contactoEmergenciaTelefono,
+              aprobacionPastor: reserva.user.aprobacionPastor,
+              tallerId: reserva.user.tallerId,
+            }}
+            talleres={talleres.map((taller) => ({
+              id: taller.id,
+              nombre: taller.nombre,
+              descripcion: taller.descripcion,
+              cupo: taller.cupo,
+              inscritos: taller._count.usuarios,
+            }))}
+          />
+        </CardContent>
+      </Card>
       <Card className="mb-4 md:mb-6">
         <CardHeader>
           <CardTitle className="text-base md:text-lg flex items-center gap-2">
@@ -477,21 +528,24 @@ export default async function AdminReservaDetalle({
       <Card className="mt-4 md:mt-6">
         <CardHeader>
           <CardTitle className="text-sm md:text-base uppercase tracking-widest text-ash">
-            Auditoría
+            AuditorÃ­a
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-0.5 text-sm md:text-base text-ash">
           <p>Creada: {formatDateTime(reserva.creadaEn)}</p>
-          <p>Última act: {formatDateTime(reserva.actualizadaEn)}</p>
+          <p>Ãšltima act: {formatDateTime(reserva.actualizadaEn)}</p>
           {reserva.confirmadaEn && (
             <p>Confirmada: {formatDateTime(reserva.confirmadaEn)}</p>
           )}
           {reserva.asistioEn && (
-            <p>Asistió: {formatDateTime(reserva.asistioEn)}</p>
+            <p>AsistiÃ³: {formatDateTime(reserva.asistioEn)}</p>
           )}
         </CardContent>
       </Card>
     </main>
   );
 }
+
+
+
 
