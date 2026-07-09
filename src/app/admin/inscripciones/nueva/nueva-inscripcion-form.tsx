@@ -12,7 +12,12 @@ import { ROL_PIC_LABELS, ROL_PIC_OPTIONS, type TallerOption } from "@/lib/pic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-const initial: AdminActionResult<{ reservaId: string; tempPassword: string | null }> = {
+const initial: AdminActionResult<{
+  reservaId: string;
+  tempPassword: string | null;
+  tempPasswordInstruction: string | null;
+  tempPasswordMethod: string | null;
+}> = {
   error: null,
   success: true,
 };
@@ -46,7 +51,7 @@ export function NuevaInscripcionForm({ talleres }: { talleres: TallerOption[] })
             <p className="mt-1 text-bone">{state.message}</p>
           </div>
         </div>
-        {state.data.tempPassword && (
+        {state.data.tempPasswordInstruction && (
           <div className="rounded-md border border-taller-iron bg-taller-shadow p-3">
             <p className="font-subhead text-xs uppercase tracking-widest text-ash">
               Credenciales temporales
@@ -55,15 +60,33 @@ export function NuevaInscripcionForm({ talleres }: { talleres: TallerOption[] })
               Correo: <span className="font-mono">{email}</span>
             </p>
             <p className="text-bone">
-              Password: <span className="font-mono">{state.data.tempPassword}</span>
+              Contrasena temporal:{" "}
+              <span className="text-ash">
+                {state.data.tempPasswordInstruction}
+              </span>
             </p>
+            {state.data.tempPassword && (
+              <p className="text-bone">
+                Valor generado:{" "}
+                <span className="font-mono">{state.data.tempPassword}</span>
+              </p>
+            )}
             <Button
               type="button"
               size="sm"
               className="mt-3"
-              onClick={() => navigator.clipboard.writeText(`Correo: ${email}\nPassword: ${state.data?.tempPassword}`)}
+              onClick={() =>
+                navigator.clipboard.writeText(
+                  [
+                    "Cuenta creada",
+                    `Correo: ${email}`,
+                    `Contrasena temporal: ${state.data?.tempPassword ?? state.data?.tempPasswordInstruction}`,
+                    "Debes cambiarla en el primer inicio de sesion.",
+                  ].join("\n")
+                )
+              }
             >
-              <Copy className="h-4 w-4" /> Copiar credenciales
+              <Copy className="h-4 w-4" /> Copiar instrucciones
             </Button>
           </div>
         )}

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/db";
-import { hashPassword } from "@/lib/password";
+import { hashPassword, verifyPassword } from "@/lib/password";
+import { isPasswordBasedOnPersonalData } from "@/lib/temporary-password";
 
 const cambiarSchema = z
   .object({
@@ -48,6 +49,34 @@ export async function cambiarContrasenaObligatoria(
   }
 
   const nueva = parsed.data.nueva;
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { passwordHash: true, documento: true, telefono: true },
+  });
+  if (!user) {
+    return { error: "Usuario no encontrado. Vuelve a iniciar sesion." };
+  }
+
+  if (await verifyPassword(nueva, user.passwordHash)) {
+    return {
+      error: "La nueva contrasena no puede ser igual a la contrasena temporal.",
+      fieldErrors: { nueva: "Usa una contrasena diferente a la temporal." },
+    };
+  }
+
+  if (
+    isPasswordBasedOnPersonalData({
+      password: nueva,
+      documento: user.documento,
+      telefono: user.telefono,
+    })
+  ) {
+    return {
+      error: "La nueva contrasena no puede ser tu documento ni tu celular.",
+      fieldErrors: { nueva: "Elige una contrasena distinta a tus datos personales." },
+    };
+  }
+
   const passwordHash = await hashPassword(nueva);
 
   await prisma.user.update({

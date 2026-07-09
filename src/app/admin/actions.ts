@@ -16,6 +16,7 @@ import { prisma } from "@/lib/db";
 import { generateEntradaCode, generateTempPassword } from "@/lib/code";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { ROL_PIC_OPTIONS } from "@/lib/pic";
+import { buildTemporaryPasswordPlan } from "@/lib/temporary-password";
 import { normalizePhoneE164, normalizeWhatsAppNumber } from "@/lib/whatsapp";
 
 import type {
@@ -1435,16 +1436,29 @@ async function habilitarEntradasSiCompleto(
 }
 
 export async function crearReservaAdmin(
-  _prev: AdminActionResult<{ reservaId: string; tempPassword: string | null }>,
+  _prev: AdminActionResult<{
+    reservaId: string;
+    tempPassword: string | null;
+    tempPasswordInstruction: string | null;
+    tempPasswordMethod: string | null;
+  }>,
   formData: FormData
-): Promise<AdminActionResult<{ reservaId: string; tempPassword: string | null }>> {
+): Promise<AdminActionResult<{
+  reservaId: string;
+  tempPassword: string | null;
+  tempPasswordInstruction: string | null;
+  tempPasswordMethod: string | null;
+}>> {
   const session = await requireAdmin();
   const adminId = session.user.id;
   const parsed = parseReservaAdmin(formData);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Datos invalidos." };
 
   const config = await getConfiguracion();
-  const tempPassword = generateTempPassword();
+  const tempPasswordPlan = buildTemporaryPasswordPlan({
+    documento: parsed.data.documento,
+    telefono: parsed.data.telefono,
+  });
   let createdUser = false;
   let reservaId = "";
 
@@ -1464,7 +1478,7 @@ export async function crearReservaAdmin(
             nombreCompleto: parsed.data.nombreCompleto,
             email: parsed.data.email,
             telefono: parsed.data.telefono,
-            passwordHash: await hashPassword(tempPassword),
+            passwordHash: await hashPassword(String(tempPasswordPlan.plaintext)),
             debeCambiarContrasena: true,
             rol: Rol.USUARIO,
           },
@@ -1543,8 +1557,15 @@ export async function crearReservaAdmin(
   return {
     error: null,
     success: true,
-    message: createdUser ? `Inscripcion creada. Password temporal: ${tempPassword}` : "Inscripcion creada para la cuenta existente.",
-    data: { reservaId, tempPassword: createdUser ? tempPassword : null },
+    message: createdUser
+      ? `Inscripcion creada. ${tempPasswordPlan.reportLabel}`
+      : "Inscripcion creada para la cuenta existente. Contrasena conservada.",
+    data: {
+      reservaId,
+      tempPassword: createdUser && tempPasswordPlan.generatedAutomatically ? tempPasswordPlan.plaintext : null,
+      tempPasswordInstruction: createdUser ? tempPasswordPlan.instruction : null,
+      tempPasswordMethod: createdUser ? tempPasswordPlan.method : "existente",
+    },
   };
 }
 
