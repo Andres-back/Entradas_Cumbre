@@ -786,8 +786,12 @@ export async function asignarMesa(
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
       return { error: "Esa silla ya está ocupada. Elegí otra." };
     }
-    if (err instanceof Error && err.message === "SILLA_OCUPADA") {
-      return { error: "Esa silla ya está ocupada por otro invitado." };
+    if (err instanceof Error) {
+      if (err.message === "SILLA_OCUPADA") return { error: "Esa silla ya está ocupada por otro invitado." };
+      if (err.message === "MESA_NO_EXISTE") return { error: "La mesa no existe. Recargá la página." };
+      if (err.message === "INVITADO_NO_EXISTE") return { error: "La persona no existe. Recargá la página." };
+      if (err.message === "INVITADO_YA_ENTRO") return { error: "La persona ya ingresó al evento." };
+      if (err.message === "SILLA_FUERA_DE_RANGO") return { error: "La silla está fuera del rango de la mesa." };
     }
     throw err;
   }
