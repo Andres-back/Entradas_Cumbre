@@ -94,7 +94,7 @@ export default async function AdminMesasPage() {
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-ash text-lg">
-                  No hay mesas. Crea la primera con el panel de abajo.
+                  No hay mesas. Cree la primera desde el panel lateral.
                 </p>
               </CardContent>
             </Card>
@@ -148,7 +148,7 @@ export default async function AdminMesasPage() {
             <CardContent>
               {invitadosSinMesa.length === 0 ? (
                 <p className="text-ash text-base">
-                  Todos los invitados pagados ya tienen silla.
+                  Todas las personas ya tienen mesa asignada.
                 </p>
               ) : (
                 <ul className="space-y-1.5 text-base max-h-72 overflow-y-auto">
@@ -170,7 +170,7 @@ export default async function AdminMesasPage() {
               )}
               <p className="text-ash text-sm mt-3 flex items-center gap-1">
                 <Info className="h-4 w-4" />
-                Haz clic en una silla libre para asignar.
+                Haga clic en una silla libre para asignar.
               </p>
             </CardContent>
           </Card>

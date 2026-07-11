@@ -114,7 +114,7 @@ export function MesaCard({ mesa, invitadosSinMesa }: MesaCardProps) {
 
   const onEliminar = () => {
     if (occupied.length > 0) {
-      setError("No se puede eliminar: hay invitados sentados.");
+      setError("No se puede eliminar: hay personas asignadas.");
       return;
     }
     if (!confirm(`Eliminar Mesa ${mesa.numero}?`)) return;
@@ -206,7 +206,7 @@ export function MesaCard({ mesa, invitadosSinMesa }: MesaCardProps) {
             onClick={onEliminar}
             title={
               occupied.length > 0
-                ? "Quita los invitados primero"
+                ? "Retire las personas primero"
                 : "Eliminar mesa"
             }
             className="h-11 w-11 md:h-9 md:w-9 p-0"
@@ -296,10 +296,10 @@ export function MesaCard({ mesa, invitadosSinMesa }: MesaCardProps) {
                   {/* Vaul/Radix exige un Title para accesibilidad de screen readers.
                       Se vincula via aria-labelledby del Content. */}
                   <Drawer.Title className="sr-only">
-                    Asignar invitado a Mesa {mesa.numero}, Silla {openSilla}
+                    Asignar persona a Mesa {mesa.numero}, Silla {openSilla}
                   </Drawer.Title>
                   <Drawer.Description className="sr-only">
-                    Lista de invitados pagados sin mesa asignada. Toca uno para
+                    Lista de personas sin mesa asignada. Toque una para
                     asignarlo a esta silla.
                   </Drawer.Description>
                   <div className="p-4 overflow-y-auto flex-1">
@@ -324,7 +324,7 @@ export function MesaCard({ mesa, invitadosSinMesa }: MesaCardProps) {
                     </div>
                     {invitadosSinMesa.length === 0 ? (
                       <p className="text-ash text-lg">
-                        No quedan invitados pagados sin silla.
+                        No quedan personas sin mesa.
                       </p>
                     ) : (
                       <ul className="space-y-1.5">

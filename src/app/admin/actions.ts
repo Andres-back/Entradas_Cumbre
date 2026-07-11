@@ -756,11 +756,8 @@ export async function asignarMesa(
         where: { id: parsed.data.invitadoId },
       });
       if (!invitado) throw new Error("INVITADO_NO_EXISTE");
-      if (invitado.estado === EstadoInvitado.ASISTIO) {
-        throw new Error("INVITADO_YA_ENTRO");
-      }
 
-      // Verificar que la silla este libre en esta mesa
+      // Verificar que la silla esté libre en esta mesa
       const ocupado = await tx.invitado.findFirst({
         where: {
           mesaId: parsed.data.mesaId,
@@ -784,13 +781,12 @@ export async function asignarMesa(
     });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-      return { error: "Esa silla ya está ocupada. Elegí otra." };
+      return { error: "Esa silla ya está ocupada. Elija otra." };
     }
     if (err instanceof Error) {
-      if (err.message === "SILLA_OCUPADA") return { error: "Esa silla ya está ocupada por otro invitado." };
-      if (err.message === "MESA_NO_EXISTE") return { error: "La mesa no existe. Recargá la página." };
-      if (err.message === "INVITADO_NO_EXISTE") return { error: "La persona no existe. Recargá la página." };
-      if (err.message === "INVITADO_YA_ENTRO") return { error: "La persona ya ingresó al evento." };
+      if (err.message === "SILLA_OCUPADA") return { error: "Esa silla ya está ocupada por otra persona." };
+      if (err.message === "MESA_NO_EXISTE") return { error: "La mesa no existe. Recargue la página." };
+      if (err.message === "INVITADO_NO_EXISTE") return { error: "La persona no existe. Recargue la página." };
       if (err.message === "SILLA_FUERA_DE_RANGO") return { error: "La silla está fuera del rango de la mesa." };
     }
     throw err;
